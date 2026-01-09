@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - MahaMap Lite</title>
+    <meta name="description" content="Admin panel untuk mengelola layer peta">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .drop-zone {
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            transform: scale(1.02);
+        }
+
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+
+        .tab-active {
+            background-color: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
+                            </path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">MahaMap Admin</h1>
+                        <p class="text-xs text-blue-100">Panel Manajemen Layer</p>
+                    </div>
+                </div>
+                <a href="/"
+                    class="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                        </path>
+                    </svg>
+                    Kembali ke Peta
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="grid md:grid-cols-2 gap-8">
+
+            <!-- Upload Section -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                        </path>
+                    </svg>
+                    Upload Layer
+                </h2>
+
+                <div class="flex mb-4 bg-gray-100 rounded-lg p-1">
+                    <button type="button" id="tabXyz"
+                        class="tab-btn flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors tab-active">
+                        📦 XYZ
+                    </button>
+                    <button type="button" id="tabGeotiff"
+                        class="tab-btn flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-800">
+                        🗺️ GeoTIFF
+                    </button>
+                    <button type="button" id="tabCsv"
+                        class="tab-btn flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-800">
+                        📍 CSV
+                    </button>
+                    <button type="button" id="tabChoropleth"
+                        class="tab-btn flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-800">
+                        🌡️ Heatmap
+                    </button>
+                </div>
+
+                <div id="infoXyz" class="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                    <strong>XYZ Tiles:</strong> Upload file ZIP berisi folder tiles dengan struktur <code
+                        class="bg-blue-100 px-1 rounded">z/x/y.png</code>. Lebih cepat, langsung upload tanpa konversi.
+                </div>
+                <div id="infoGeotiff" class="hidden mb-4 p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700">
+                    <strong>GeoTIFF:</strong> Upload file .tif/.tiff, akan dikonversi ke tiles via GDAL. Membutuhkan
+                    waktu lebih lama.
+                </div>
+                <div id="infoCsv" class="hidden mb-4 p-3 bg-green-50 rounded-lg text-sm text-green-700">
+                    <strong>CSV Points:</strong> Upload file CSV dengan kolom latitude dan longitude. Data akan
+                    ditampilkan sebagai marker di peta.
+                </div>
+                <div id="infoChoropleth" class="hidden mb-4 p-3 bg-purple-50 rounded-lg text-sm text-purple-700">
+                    <strong>Choropleth Heatmap:</strong> Upload file CSV dengan kolom kode negara (ISO2/ISO3) dan nilai.
+                    Tampil sebagai peta berwarna dengan slider tahun jika ada kolom Year.
+                </div>
+
+                <!-- Upload Form -->
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <input type="hidden" id="uploadType" name="upload_type" value="xyz">
+
+                    <!-- Drop Zone -->
+                    <div id="dropZone"
+                        class="drop-zone border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50">
+                        <input type="file" id="fileInput" name="file" class="hidden">
+                        <div id="dropContent">
+                            <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                </path>
+                            </svg>
+                            <p class="text-gray-600 font-medium" id="dropLabel">Drop file ZIP tiles disini</p>
+                            <p class="text-sm text-gray-400 mt-1">atau klik untuk memilih file</p>
+                            <p class="text-xs text-gray-400 mt-2" id="dropHint">Format: .zip (max 500MB)</p>
+                        </div>
+                        <div id="filePreview" class="hidden">
+                            <svg class="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-gray-800 font-medium" id="fileName">-</p>
+                            <p class="text-sm text-gray-500" id="fileSize">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Layer Settings -->
+                    <div class="mt-5 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Layer</label>
+                            <input type="text" id="layerName" name="layer_name" required
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="contoh: banjir-surabaya-2025">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi (opsional)</label>
+                            <input type="text" id="layerDesc" name="description"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Deskripsi singkat layer">
+                        </div>
+
+                        <!-- Zoom settings (only for GeoTIFF) -->
+                        <div id="zoomSettings" class="hidden grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Zoom Min</label>
+                                <select id="zoomMin" name="zoom_min"
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                                    <option value="8">8</option>
+                                    <option value="9">9</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="11">11</option>
+                                    <option value="12">12</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Zoom Max</label>
+                                <select id="zoomMax" name="zoom_max"
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                                    <option value="12">12</option>
+                                    <option value="13">13</option>
+                                    <option value="14" selected>14</option>
+                                    <option value="15">15</option>
+                                    <option value="16">16</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- CSV column settings -->
+                        <div id="csvSettings" class="hidden space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Kolom Latitude</label>
+                                    <input type="text" id="latCol" name="lat_col"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                        placeholder="Auto-detect">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Kolom Longitude</label>
+                                    <input type="text" id="lonCol" name="lon_col"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                        placeholder="Auto-detect">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Kolom Popup
+                                    (opsional)</label>
+                                <input type="text" id="popupCol" name="popup_col"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    placeholder="Nama kolom untuk ditampilkan di popup">
+                            </div>
+                            <p class="text-xs text-gray-500">Biarkan kosong untuk auto-detect kolom lat/lon</p>
+                        </div>
+
+                        <!-- Choropleth settings -->
+                        <div id="choroplethSettings" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Kolom Nilai
+                                    (Legend/Heatmap)</label>
+                                <input type="text" id="valueCol" name="value_col"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    placeholder="Contoh: Nilai, GDP, Jumlah (Case Sensitive)">
+                                <p class="text-xs text-gray-500 mt-1">Kolom ini yang akan dijadikan patokan
+                                    warna/legend.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submitBtn" disabled
+                        class="w-full mt-6 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                        </svg>
+                        <span id="submitLabel">Upload</span>
+                    </button>
+                </form>
+
+                <!-- Progress Section -->
+                <div id="progressSection" class="hidden mt-6">
+                    <div class="bg-blue-50 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-blue-700" id="progressStatus">Memproses...</span>
+                            <span class="text-sm font-bold text-blue-700" id="progressPercent">0%</span>
+                        </div>
+                        <div class="w-full bg-blue-200 rounded-full h-2.5">
+                            <div id="progressBar" class="progress-bar bg-blue-600 h-2.5 rounded-full" style="width: 0%">
+                            </div>
+                        </div>
+                        <p class="text-xs text-blue-600 mt-2" id="progressDetail">Mengunggah file...</p>
+                    </div>
+                </div>
+
+                <!-- Result Section -->
+                <div id="resultSection" class="hidden mt-6">
+                    <div id="successResult" class="hidden bg-green-50 border border-green-200 rounded-xl p-4">
+                        <p class="font-semibold text-green-800">✓ Berhasil!</p>
+                        <p class="text-sm text-green-700" id="successMessage">Layer berhasil ditambahkan.</p>
+                    </div>
+                    <div id="errorResult" class="hidden bg-red-50 border border-red-200 rounded-xl p-4">
+                        <p class="font-semibold text-red-800">✗ Gagal!</p>
+                        <p class="text-sm text-red-700" id="errorMessage">Terjadi kesalahan.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Existing Layers Section -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                        </path>
+                    </svg>
+                    Layer Tersedia
+                    <span class="ml-auto text-xs text-gray-500">{{ layers|length }} layer</span>
+                </h2>
+
+                <div id="layerList" class="space-y-3 max-h-96 overflow-y-auto">
+                    {% if layers %}
+                    {% for layer in layers %}
+                    <div
+                        class="layer-card flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors group">
+                        <div>
+                            <p class="font-medium text-gray-800">{{ layer.name }}</p>
+                            {% if layer.description %}<p class="text-sm text-gray-500">{{ layer.description }}</p>{%
+                            endif %}
+                        </div>
+                        <button
+                            class="delete-layer opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-100 rounded-lg"
+                            data-id="{{ layer.id }}" data-name="{{ layer.name }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center py-12 text-gray-400">
+                        <p class="text-sm">Belum ada layer</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- System Status -->
+                <div class="mt-6 pt-4 border-t border-gray-100">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Status Sistem</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Cloudflare R2</span>
+                            {% if supabase_connected %}
+                            <span class="text-green-600">● Terhubung</span>
+                            {% else %}
+                            <span class="text-red-600">● Tidak terhubung</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">GDAL (untuk GeoTIFF)</span>
+                            {% if gdal_installed %}
+                            <span class="text-green-600">● Terinstall</span>
+                            {% else %}
+                            <span class="text-yellow-600">● Tidak ditemukan</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Elements
+        const tabXyz = document.getElementById('tabXyz');
+        const tabGeotiff = document.getElementById('tabGeotiff');
+        const uploadType = document.getElementById('uploadType');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const dropLabel = document.getElementById('dropLabel');
+        const dropHint = document.getElementById('dropHint');
+        const dropContent = document.getElementById('dropContent');
+        const filePreview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const infoXyz = document.getElementById('infoXyz');
+        const infoGeotiff = document.getElementById('infoGeotiff');
+        const infoCsv = document.getElementById('infoCsv');
+        const infoChoropleth = document.getElementById('infoChoropleth');
+        const zoomSettings = document.getElementById('zoomSettings');
+        const csvSettings = document.getElementById('csvSettings');
+        const choroplethSettings = document.getElementById('choroplethSettings');
+        const tabCsv = document.getElementById('tabCsv');
+        const tabChoropleth = document.getElementById('tabChoropleth');
+        const submitBtn = document.getElementById('submitBtn');
+        const submitLabel = document.getElementById('submitLabel');
+        const layerName = document.getElementById('layerName');
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressStatus = document.getElementById('progressStatus');
+        const progressDetail = document.getElementById('progressDetail');
+        const resultSection = document.getElementById('resultSection');
+        const successResult = document.getElementById('successResult');
+        const errorResult = document.getElementById('errorResult');
+
+        let selectedFile = null;
+        let currentMode = 'xyz';
+
+        // Tab switching
+        function switchTab(mode) {
+            currentMode = mode;
+            uploadType.value = mode;
+            selectedFile = null;
+            resetFilePreview();
+
+            // Reset all tabs
+            [tabXyz, tabGeotiff, tabCsv, tabChoropleth].forEach(tab => {
+                tab.classList.remove('tab-active');
+                tab.classList.add('text-gray-600');
+            });
+            [infoXyz, infoGeotiff, infoCsv, infoChoropleth].forEach(info => info.classList.add('hidden'));
+            zoomSettings.classList.add('hidden');
+            csvSettings.classList.add('hidden');
+            choroplethSettings.classList.add('hidden');
+
+            if (mode === 'xyz') {
+                tabXyz.classList.add('tab-active');
+                tabXyz.classList.remove('text-gray-600');
+                infoXyz.classList.remove('hidden');
+                fileInput.accept = '.zip';
+                dropLabel.textContent = 'Drop file ZIP tiles disini';
+                dropHint.textContent = 'Format: .zip (max 500MB)';
+                submitLabel.textContent = 'Upload';
+            } else if (mode === 'geotiff') {
+                tabGeotiff.classList.add('tab-active');
+                tabGeotiff.classList.remove('text-gray-600');
+                infoGeotiff.classList.remove('hidden');
+                zoomSettings.classList.remove('hidden');
+                fileInput.accept = '.tif,.tiff';
+                dropLabel.textContent = 'Drop file GeoTIFF disini';
+                dropHint.textContent = 'Format: .tif, .tiff (max 2GB)';
+                submitLabel.textContent = 'Upload & Konversi';
+            } else if (mode === 'csv') {
+                tabCsv.classList.add('tab-active');
+                tabCsv.classList.remove('text-gray-600');
+                infoCsv.classList.remove('hidden');
+                csvSettings.classList.remove('hidden');
+                fileInput.accept = '.csv';
+                dropLabel.textContent = 'Drop file CSV disini';
+                dropHint.textContent = 'Format: .csv (max 50MB)';
+                submitLabel.textContent = 'Upload & Proses';
+            } else if (mode === 'choropleth') {
+                tabChoropleth.classList.add('tab-active');
+                tabChoropleth.classList.remove('text-gray-600');
+                infoChoropleth.classList.remove('hidden');
+                choroplethSettings.classList.remove('hidden');
+                fileInput.accept = '.csv';
+                dropLabel.textContent = 'Drop file CSV untuk Heatmap';
+                dropHint.textContent = 'Format: .csv dengan kolom negara dan nilai (max 50MB)';
+                submitLabel.textContent = 'Upload & Buat Heatmap';
+            }
+            updateSubmitButton();
+        }
+
+        tabXyz.addEventListener('click', () => switchTab('xyz'));
+        tabGeotiff.addEventListener('click', () => switchTab('geotiff'));
+        tabCsv.addEventListener('click', () => switchTab('csv'));
+        tabChoropleth.addEventListener('click', () => switchTab('choropleth'));
+
+        // File handling
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            const validXyz = ['.zip'];
+            const validGeo = ['.tif', '.tiff'];
+            const validCsv = ['.csv'];
+
+            if (currentMode === 'xyz' && !validXyz.includes(ext)) {
+                alert('Untuk mode XYZ, gunakan file ZIP');
+                return;
+            }
+            if (currentMode === 'geotiff' && !validGeo.includes(ext)) {
+                alert('Untuk mode GeoTIFF, gunakan file .tif atau .tiff');
+                return;
+            }
+            if (currentMode === 'csv' && !validCsv.includes(ext)) {
+                alert('Untuk mode CSV, gunakan file .csv');
+                return;
+            }
+            if (currentMode === 'choropleth' && !validCsv.includes(ext)) {
+                alert('Untuk mode Heatmap, gunakan file .csv');
+                return;
+            }
+
+            let maxSize = 500 * 1024 * 1024; // default 500MB
+            if (currentMode === 'geotiff') maxSize = 2 * 1024 * 1024 * 1024;
+            else if (currentMode === 'csv' || currentMode === 'choropleth') maxSize = 50 * 1024 * 1024;
+
+            if (file.size > maxSize) {
+                const maxLabel = currentMode === 'geotiff' ? '2GB' : (currentMode === 'csv' ? '50MB' : '500MB');
+                alert(`Ukuran file maksimal ${maxLabel}`);
+                return;
+            }
+
+            // Warn about long processing time for large GeoTIFF files
+            if (currentMode === 'geotiff' && file.size > 200 * 1024 * 1024) {
+                const sizeMB = (file.size / (1024 * 1024)).toFixed(0);
+                if (!confirm(`File ${sizeMB}MB cukup besar. Proses konversi dapat memakan waktu 30-60 menit. Lanjutkan?`)) {
+                    return;
+                }
+            }
+
+            selectedFile = file;
+            dropContent.classList.add('hidden');
+            filePreview.classList.remove('hidden');
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+
+            if (!layerName.value) {
+                layerName.value = file.name.replace(/\.[^/.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            }
+            updateSubmitButton();
+        }
+
+        function resetFilePreview() {
+            dropContent.classList.remove('hidden');
+            filePreview.classList.add('hidden');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        layerName.addEventListener('input', updateSubmitButton);
+
+        function updateSubmitButton() {
+            submitBtn.disabled = !(selectedFile && layerName.value.trim());
+        }
+
+        // Form submission
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('upload_type', currentMode);
+            formData.append('layer_name', layerName.value.trim());
+            formData.append('description', document.getElementById('layerDesc').value);
+            formData.append('zoom_min', document.getElementById('zoomMin').value);
+            formData.append('zoom_max', document.getElementById('zoomMax').value);
+
+            // Add CSV-specific fields
+            if (currentMode === 'csv') {
+                formData.append('lat_col', document.getElementById('latCol').value);
+                formData.append('lon_col', document.getElementById('lonCol').value);
+                formData.append('popup_col', document.getElementById('popupCol').value);
+                formData.append('popup_col', document.getElementById('popupCol').value);
+            }
+
+            // Choropleth specific field
+            if (currentMode === 'choropleth') {
+                formData.append('value_col', document.getElementById('valueCol').value);
+            }
+
+            submitBtn.disabled = true;
+            progressSection.classList.remove('hidden');
+            resultSection.classList.add('hidden');
+
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    // XYZ: upload is 90%, GeoTIFF: 50%, CSV: 70%
+                    const uploadWeight = currentMode === 'xyz' ? 90 : (currentMode === 'csv' ? 70 : 50);
+                    const pct = Math.round((e.loaded / e.total) * uploadWeight);
+                    updateProgress(pct, 'Mengunggah...', `${formatFileSize(e.loaded)} / ${formatFileSize(e.total)}`);
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200) {
+                    const res = JSON.parse(xhr.responseText);
+                    if (res.success) {
+                        if (res.task_id) {
+                            pollProgress(res.task_id);
+                        } else {
+                            updateProgress(100, 'Selesai!', '');
+                            setTimeout(() => showSuccess(res.message || 'Berhasil!'), 500);
+                        }
+                    } else {
+                        showError(res.error || 'Terjadi kesalahan');
+                    }
+                } else {
+                    showError('Upload gagal');
+                }
+            });
+
+            xhr.addEventListener('error', () => showError('Koneksi gagal'));
+            xhr.open('POST', '/admin/upload');
+            xhr.send(formData);
+        });
+
+        function updateProgress(pct, status, detail) {
+            progressBar.style.width = pct + '%';
+            progressPercent.textContent = pct + '%';
+            if (status) progressStatus.textContent = status;
+            if (detail) progressDetail.textContent = detail;
+        }
+
+        async function pollProgress(taskId) {
+            updateProgress(50, 'Mengkonversi...', 'Memproses tiles...');
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/admin/progress/${taskId}`);
+                    const data = await res.json();
+
+                    if (data.status === 'converting') {
+                        updateProgress(50 + data.progress * 0.3, 'Mengkonversi...', data.detail);
+                    } else if (data.status === 'uploading') {
+                        updateProgress(80 + data.progress * 0.15, 'Mengupload ke storage...', data.detail);
+                    } else if (data.status === 'done') {
+                        clearInterval(interval);
+                        updateProgress(100, 'Selesai!', '');
+                        setTimeout(() => showSuccess(data.message), 500);
+                    } else if (data.status === 'error') {
+                        clearInterval(interval);
+                        showError(data.error);
+                    }
+                } catch (err) { console.error(err); }
+            }, 1000);
+
+            // GeoTIFF: 60 min timeout (large files take time), XYZ: 10 min
+            const timeoutMs = currentMode === 'geotiff' ? 60 * 60 * 1000 : 10 * 60 * 1000;
+            setTimeout(() => { clearInterval(interval); showError('Timeout - proses terlalu lama'); }, timeoutMs);
+        }
+
+        function showSuccess(msg) {
+            progressSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+            successResult.classList.remove('hidden');
+            errorResult.classList.add('hidden');
+            document.getElementById('successMessage').textContent = msg;
+            setTimeout(() => window.location.reload(), 2000);
+        }
+
+        function showError(msg) {
+            progressSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+            successResult.classList.add('hidden');
+            errorResult.classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = msg;
+            submitBtn.disabled = false;
+        }
+
+        // Delete layer
+        document.querySelectorAll('.delete-layer').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                if (!confirm(`Hapus layer "${this.dataset.name}"?`)) return;
+                try {
+                    const res = await fetch(`/admin/delete/${this.dataset.id}`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (data.success) window.location.reload();
+                    else alert('Gagal: ' + data.error);
+                } catch (err) { alert('Error: ' + err.message); }
+            });
+        });
+    </script>
+</body>
+
+</html>

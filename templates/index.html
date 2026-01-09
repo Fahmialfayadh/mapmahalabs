@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PetaSight</title>
+    <meta name="description" content="Peta interaktif untuk analisis data spasial">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <style>
+        /* Full screen map */
+        #map {
+            height: 100vh;
+            width: 100%;
+            z-index: 0;
+            background: #eef2f6;
+            /* Soft background color matching MahaLabs vibe */
+        }
+
+        /* Smooth drawer transition */
+        .drawer {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* Custom scrollbar for sidebar */
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Toggle switch animation */
+        .toggle-switch {
+            transition: background-color 0.2s ease;
+        }
+
+        .toggle-switch::after {
+            transition: transform 0.2s ease;
+        }
+
+        /* Custom range slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            background: linear-gradient(to right, #3b82f6, #93c5fd);
+            border-radius: 3px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #2563eb;
+        }
+
+        /* Overlay for mobile */
+        .sidebar-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        /* Year Slider Control - Glassmorphism */
+        .year-slider-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.85);
+            /* Glass effect */
+            backdrop-filter: blur(8px);
+            padding: 16px 24px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 1000;
+            display: none;
+            min-width: 380px;
+            max-width: 90vw;
+            transition: all 0.3s ease;
+        }
+
+        .year-slider-container.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translate(-50%, 20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translate(-50%, 0);
+                opacity: 1;
+            }
+        }
+
+        .slider-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .year-display {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #1e3a8a;
+            /* Deep blue */
+            line-height: 1;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+        }
+
+        .play-btn {
+            background: #eff6ff;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #2563eb;
+            transition: all 0.2s ease;
+        }
+
+        .play-btn:hover {
+            background: #dbeafe;
+            transform: scale(1.05);
+        }
+
+        .play-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+            margin-left: 2px;
+            /* Visual balance */
+        }
+
+        .play-btn.playing svg {
+            margin-left: 0;
+        }
+
+        /* Custom Range Slider */
+        .slider-wrapper {
+            position: relative;
+            width: 100%;
+            height: 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            z-index: 2;
+        }
+
+        input[type="range"]:focus {
+            outline: none;
+        }
+
+        /* Track */
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #e2e8f0;
+            border-radius: 999px;
+            transition: background 0.2s ease;
+        }
+
+        /* Thumb */
+        input[type="range"]::-webkit-slider-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+            /* center thumb */
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+            transition: transform 0.1s ease, background 0.2s;
+            border: 2px solid white;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            background: #2563eb;
+        }
+
+        .year-labels {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        /* Legend - Minimalist */
+        .legend-container {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.85);
+            /* Glass effect */
+            backdrop-filter: blur(8px);
+            padding: 16px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 900;
+            /* Below slider container if overlap */
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .legend-container.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .legend-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .legend-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0;
+        }
+
+        .legend-unit {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-left: 8px;
+        }
+
+        .legend-bar-container {
+            position: relative;
+            padding-top: 4px;
+        }
+
+        .legend-gradient {
+            width: 180px;
+            height: 10px;
+            border-radius: 99px;
+            background: linear-gradient(to right, #FFEDA0, #FEB24C, #FD8D3C, #FC4E2A, #E31A1C, #BD0026, #800026);
+            margin-bottom: 6px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #475569;
+            margin-top: 4px;
+        }
+
+        /* Aurora Background for Sidebar Header */
+        .aurora-header {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .aurora-header::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(167, 139, 250, 0.4) 0%, rgba(167, 139, 250, 0) 70%);
+            filter: blur(40px);
+            z-index: 0;
+        }
+
+        .aurora-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            right: -30px;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(59, 130, 246, 0) 70%);
+            filter: blur(40px);
+            z-index: 0;
+        }
+
+        .layer-detail-info {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease;
+            opacity: 0;
+        }
+
+        /* Expanded state class handled by JS */
+        .layer-item.expanded .layer-detail-info {
+            max-height: 300px;
+            opacity: 1;
+            margin-top: 0.75rem;
+        }
+
+        .layer-chevron {
+            transition: transform 0.3s ease;
+        }
+
+        .layer-item.expanded .layer-chevron {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 overflow-hidden">
+
+    <!-- Mobile Menu Button -->
+    <button id="menuBtn"
+        class="absolute top-4 left-4 z-50 bg-white p-3 rounded-xl shadow-lg md:hidden hover:bg-gray-50 active:bg-gray-100 transition-colors"
+        aria-label="Toggle menu">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+    </button>
+
+    <!-- Mobile Overlay -->
+    <div id="sidebarOverlay"
+        class="sidebar-overlay fixed inset-0 bg-black/40 z-30 hidden md:hidden opacity-0 pointer-events-none">
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="drawer absolute inset-y-0 left-0 w-80 bg-white/70 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] z-40 transform -translate-x-full md:translate-x-0 flex flex-col border-r border-white/40">
+
+        <!-- Header -->
+        <div class="p-6 aurora-header z-10">
+            <div class="flex items-center gap-3 relative z-10">
+                <div
+                    class="w-10 h-10 bg-white/50 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-sm border border-white/60">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
+                        </path>
+                    </svg>
+                </div>
+                <div>
+                    <h1
+                        class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-600">
+                        PetaSight</h1>
+                    <p class="text-xs text-gray-500 font-medium">Visualisasi Data Spasial</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto sidebar-scroll p-4">
+
+            <!-- Layer Controls Section -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                            </path>
+                        </svg>
+                        <h3 class="font-bold text-xs text-gray-500 uppercase tracking-widest">Data Tersedia</h3>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="refreshLayersBtn"
+                            class="p-1.5 hover:bg-gray-100 text-gray-400 hover:text-indigo-600 rounded-lg transition-all duration-200"
+                            title="Refresh layers">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="layer-controls" class="space-y-2">
+                    {% if layers %}
+                    {% for layer in layers %}
+                    <div class="layer-item p-3.5 bg-white/60 hover:bg-white/90 border border-white/60 hover:border-white shadow-sm hover:shadow-md rounded-xl transition-all duration-200 group cursor-pointer"
+                        onclick="toggleLayerDetail(this, event)">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0 flex items-center gap-3">
+                                <div
+                                    class="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-50 border border-gray-100 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-colors">
+                                    {% if layer.layer_type == 'geojson' %}
+                                    <span class="text-sm" title="Point layer">📍</span>
+                                    {% elif layer.layer_type == 'choropleth' %}
+                                    <span class="text-sm" title="Choropleth heatmap">🌡️</span>
+                                    {% else %}
+                                    <span class="text-sm" title="Tile layer">🗺️</span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-1">
+                                        <p
+                                            class="text-sm font-semibold text-gray-700 truncate group-hover:text-indigo-700 transition-colors">
+                                            {{ layer.name }}
+                                        </p>
+                                        <svg class="layer-chevron w-3 h-3 text-gray-400" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                    <p class="text-[10px] text-gray-400 truncate font-medium">{{
+                                        layer.layer_type|default('Layer', true)|title }}</p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer ml-3 flex-shrink-0"
+                                onclick="event.stopPropagation()">
+                                <input type="checkbox" class="sr-only peer layer-toggle"
+                                    data-folder="{{ layer.folder_path }}" data-type="{{ layer.layer_type or 'tiles' }}">
+                                <div
+                                    class="toggle-switch w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 peer-checked:bg-indigo-600 shadow-inner">
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Hidden Info Section -->
+                        <div class="layer-detail-info pb-1 pl-1 pr-1 border-t border-dashed border-gray-200 mt-2 pt-2">
+                            {% if layer.description %}
+                            <p class="text-xs text-gray-500 leading-relaxed mb-2">{{ layer.description }}</p>
+                            {% else %}
+                            <p class="text-xs text-gray-400 italic mb-2">Tidak ada deskripsi tersedia.</p>
+                            {% endif %}
+
+                            <div class="flex flex-wrap gap-2 text-[10px]">
+                                <span class="px-2 py-0.5 bg-gray-100 text-gray-500 rounded border border-gray-200">
+                                    Source: {{ layer.source|default('User Upload') }}
+                                </span>
+                                <span class="px-2 py-0.5 bg-gray-100 text-gray-500 rounded border border-gray-200">
+                                    Created: {{ layer.created_at|default('Recent') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center py-8 px-4">
+                        <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
+                            </path>
+                        </svg>
+                        <p class="text-sm text-gray-500">Belum ada layer</p>
+                        <p class="text-xs text-gray-400 mt-1">Upload GeoTIFF untuk memulai</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Opacity Control -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01">
+                            </path>
+                        </svg>
+                        <label class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Transparansi</label>
+                    </div>
+                    <span id="opacityValue"
+                        class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">70%</span>
+                </div>
+                <input type="range" id="opacitySlider" min="0" max="1" step="0.05" value="0.7"
+                    class="w-full h-2 bg-gray-200 rounded-lg cursor-pointer">
+            </div>
+
+            <!-- Basemap Selector -->
+            <div class="mb-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                        </path>
+                    </svg>
+                    <h3 class="font-semibold text-sm text-gray-700 uppercase tracking-wide">Peta Dasar</h3>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button
+                        class="basemap-btn active-basemap px-3 py-2 text-xs font-medium rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700"
+                        data-basemap="osm">
+                        OpenStreetMap
+                    </button>
+                    <button
+                        class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        data-basemap="satellite">
+                        Satelit
+                    </button>
+                    <button
+                        class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        data-basemap="topo">
+                        Topografi
+                    </button>
+                    <button
+                        class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        data-basemap="dark">
+                        Gelap
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-gray-100 bg-gray-50/50">
+            <div class="flex items-center justify-between text-xs text-gray-500">
+                <span>PetaSight v1.0</span>
+                <a href="#" class="hover:text-blue-600 transition-colors">Bantuan</a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Year Slider Control (for choropleth layers) -->
+    <div id="yearSliderContainer" class="year-slider-container">
+        <div class="slider-header">
+            <button id="playBtn" class="play-btn" title="Play Animation">
+                <svg viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                </svg>
+            </button>
+            <div class="year-display" id="yearDisplay">2024</div>
+            <div style="width: 40px;"></div> <!-- Spacer for center balance -->
+        </div>
+
+        <div class="slider-wrapper">
+            <input type="range" id="yearSlider" min="1000" max="2025" value="2025">
+        </div>
+
+        <div class="year-labels">
+            <span id="yearMin">1000</span>
+            <span id="yearMax">2025</span>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div id="legendContainer" class="legend-container">
+        <div class="legend-header">
+            <div class="legend-title" id="legendTitle">Value</div>
+        </div>
+        <div class="legend-bar-container">
+            <div class="legend-gradient" id="legendGradient"
+                style="background: linear-gradient(to right, #FFEDA0, #FEB24C, #FD8D3C, #FC4E2A, #E31A1C, #BD0026, #800026);">
+                <!-- Ticks will be added via JS if needed, or just visual distribution -->
+            </div>
+            <div class="legend-labels">
+                <span id="legendMin" class="text-left">0</span>
+                <span id="legendQ1" class="text-center hidden sm:block">25%</span>
+                <span id="legendMed" class="text-center">50%</span>
+                <span id="legendQ3" class="text-center hidden sm:block">75%</span>
+                <span id="legendMax" class="text-right">100k</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // ============================
+        // Map Initialization
+        // ============================
+
+        // Initialize map with Surabaya coordinates
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: true
+        }).setView([-7.30, 112.74], 11);
+
+        // Move zoom control to bottom right (avoid sidebar overlap)
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        function getColor(d, maxVal) {
+            // Cegah pembagian dengan 0
+            if (maxVal === 0) return '#FFEDA0';
+
+            const ratio = d / maxVal;
+            return ratio > 0.8 ? '#800026' :
+                ratio > 0.6 ? '#BD0026' :
+                    ratio > 0.4 ? '#E31A1C' :
+                        ratio > 0.2 ? '#FC4E2A' :
+                            ratio > 0.1 ? '#FD8D3C' :
+                                ratio > 0.05 ? '#FEB24C' :
+                                    '#FFEDA0';
+        }
+        // ============================
+        // Basemap Definitions
+        // ============================
+
+        const basemaps = {
+            osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 19
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri',
+                maxZoom: 18
+            }),
+            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenTopoMap',
+                maxZoom: 17
+            }),
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CartoDB',
+                maxZoom: 19
+            })
+        };
+
+        // Set default basemap
+        let currentBasemap = basemaps.osm;
+        currentBasemap.addTo(map);
+
+        // ============================
+        // Layer Management
+        // ============================
+
+        // Base URL for Supabase Storage (from Flask)
+        const storageBaseUrl = "{{ storage_url }}";
+
+        // Active overlay layers
+        let activeLayers = {};
+
+        // ============================
+        // Event Handlers (using event delegation for dynamic layers)
+        // ============================
+
+        // Layer toggle functionality - using event delegation
+        // Pastikan fungsi getColor sudah ada di paling atas script (di luar event listener)
+        // function getColor(d, maxVal) { ... }
+
+        // Accordion Toggle Function
+        function toggleLayerDetail(element, event) {
+            // Check if we clicked on the switch (handled by stopPropagation, but double check)
+            if (event.target.closest('.layer-toggle') || event.target.closest('.toggle-switch')) {
+                return;
+            }
+            // Toggle the expanded class on the clicked item
+            element.classList.toggle('expanded');
+        }
+
+        document.getElementById('layer-controls').addEventListener('change', async function (e) {
+            if (!e.target.classList.contains('layer-toggle')) return;
+
+            const toggle = e.target;
+            const folder = toggle.dataset.folder;
+            const layerType = toggle.dataset.type || 'tiles';
+            const opacity = parseFloat(document.getElementById('opacitySlider').value);
+
+            console.log(`Toggle layer: ${folder}, type: ${layerType}, checked: ${toggle.checked}`);
+
+            if (toggle.checked) {
+                // --- LOGIKA MENAMBAHKAN LAYER ---
+                if (layerType === 'choropleth') {
+                    // === CHOROPLETH LAYER ===
+                    try {
+                        console.log('Loading choropleth layer...');
+
+                        // 1. Initial Fetch to get Metadata
+                        const choroplethRes = await fetch(`/api/choropleth-data/${folder}`);
+                        if (!choroplethRes.ok) throw new Error('Failed to load choropleth data');
+                        const choroplethData = await choroplethRes.json();
+
+                        console.log('Choropleth data:', choroplethData);
+
+                        // 2. Load Geometry (Countries or Custom Points)
+                        let countriesRes;
+                        if (choroplethData.geojson_file) {
+                            // Use custom geometry (e.g. for Province Heatmap)
+                            const geoUrl = `/api/layer-geometry/${folder}/${choroplethData.geojson_file}`;
+                            console.log(`Loading custom geometry: ${geoUrl}`);
+                            countriesRes = await fetch(geoUrl);
+                        } else {
+                            // Default to World Countries
+                            countriesRes = await fetch('/api/countries-geojson');
+                        }
+
+                        if (!countriesRes.ok) throw new Error('Failed to load geometry');
+                        const countriesGeoJSON = await countriesRes.json();
+
+                        console.log('Choropleth data:', choroplethData);
+
+                        // 2. Setup year slider
+                        const years = choroplethData.years || ['all'];
+                        const hasYears = years.length > 1 || years[0] !== 'all';
+
+                        if (hasYears) {
+                            const yearSlider = document.getElementById('yearSlider');
+                            const yearDisplay = document.getElementById('yearDisplay');
+                            const yearMin = document.getElementById('yearMin');
+                            const yearMax = document.getElementById('yearMax');
+
+                            yearSlider.min = 0;
+                            yearSlider.max = years.length - 1;
+                            yearSlider.value = years.length - 1; // Start at latest year
+                            yearDisplay.textContent = years[years.length - 1];
+                            yearMin.textContent = years[0];
+                            yearMax.textContent = years[years.length - 1];
+
+                            document.getElementById('yearSliderContainer').classList.add('active');
+                        }
+
+                        // 3. Setup legend
+                        // 3. Setup legend
+                        let title = choroplethData.value_column || 'Value';
+                        // Clean up title: remove parentheses content if distinct, e.g. "GDP (USD)" -> "GDP"
+                        if (title.length > 25 && title.includes('(')) {
+                            title = title.split('(')[0].trim();
+                        }
+                        // Replace underscores
+                        title = title.replace(/_/g, ' ');
+
+                        document.getElementById('legendTitle').textContent = title;
+
+                        const maxVal = choroplethData.max_value;
+                        const minVal = choroplethData.min_value;
+
+                        document.getElementById('legendMin').textContent = formatNumber(minVal);
+                        document.getElementById('legendMax').textContent = formatNumber(maxVal);
+
+                        // Intermediate values
+                        document.getElementById('legendMed').textContent = formatNumber((minVal + maxVal) / 2);
+                        document.getElementById('legendQ1').textContent = formatNumber(minVal + (maxVal - minVal) * 0.25);
+                        document.getElementById('legendQ3').textContent = formatNumber(minVal + (maxVal - minVal) * 0.75);
+
+                        document.getElementById('legendContainer').classList.add('active');
+
+                        // 4. Create choropleth layer
+                        const currentYear = hasYears ? years[years.length - 1] : 'all';
+
+                        const choroplethLayer = L.geoJSON(countriesGeoJSON, {
+                            // Support for Points (CircleMarkers) - Heatmap Style
+                            pointToLayer: (feature, latlng) => {
+                                const countryCode = feature.properties['ISO3166-1-Alpha-3'] ||
+                                    feature.properties['ISO3166-1-Alpha-2'] ||
+                                    feature.properties.name;
+                                const countryData = choroplethData.data[countryCode] ||
+                                    choroplethData.data[countryCode?.toUpperCase()];
+                                const value = countryData ? (countryData[currentYear] || 0) : null;
+
+                                // Dynamic Radius based on value relative to max
+                                const maxVal = choroplethData.max_value || 100;
+                                const radius = value !== null ? Math.max(5, (Math.sqrt(value) / Math.sqrt(maxVal)) * 25) : 5;
+
+                                return L.circleMarker(latlng, {
+                                    radius: radius,
+                                    fillColor: value !== null ? getColor(value, choroplethData.max_value) : '#ccc',
+                                    color: '#fff',
+                                    weight: 1,
+                                    opacity: 1,
+                                    fillOpacity: 0.8
+                                });
+                            },
+                            style: (feature) => {
+                                // Only applies to Polygons/Lines
+                                const countryCode = feature.properties['ISO3166-1-Alpha-3'] ||
+                                    feature.properties['ISO3166-1-Alpha-2'] ||
+                                    feature.properties['Propinsi'] ||
+                                    feature.properties.name;
+                                const countryData = choroplethData.data[countryCode] ||
+                                    choroplethData.data[countryCode?.toUpperCase()];
+                                const value = countryData ? (countryData[currentYear] || 0) : null;
+
+                                return {
+                                    fillColor: value !== null ? getColor(value, choroplethData.max_value) : '#ccc',
+                                    weight: 0.5,
+                                    opacity: 1,
+                                    color: '#666',
+                                    fillOpacity: value !== null ? 0.7 : 0.3
+                                };
+                            },
+                            onEachFeature: (feature, layer) => {
+                                const countryCode = feature.properties['ISO3166-1-Alpha-3'] ||
+                                    feature.properties['ISO3166-1-Alpha-2'] ||
+                                    feature.properties['Propinsi'];
+                                const countryName = feature.properties.name || feature.properties['Propinsi'] || countryCode;
+                                const countryData = choroplethData.data[countryCode] ||
+                                    choroplethData.data[countryCode?.toUpperCase()];
+                                const value = countryData ? (countryData[currentYear] || 0) : null;
+
+                                let popup = `<div class="text-sm"><b>${countryName}</b><br>`;
+                                if (value !== null) {
+                                    popup += `${choroplethData.value_column}: ${formatNumber(value)}`;
+                                } else {
+                                    popup += '<i>No data</i>';
+                                }
+                                popup += '</div>';
+                                layer.bindPopup(popup);
+                            }
+                        }).addTo(map);
+
+                        // Store layer with metadata
+                        activeLayers[folder] = {
+                            layer: choroplethLayer,
+                            type: 'choropleth',
+                            data: choroplethData,
+                            years: years
+                        };
+
+                        // 5. Year slider event handler
+                        // 5. Year slider & Animation logic
+                        if (hasYears) {
+                            const yearSlider = document.getElementById('yearSlider');
+                            const yearDisplay = document.getElementById('yearDisplay');
+                            const playBtn = document.getElementById('playBtn');
+                            let playInterval = null;
+
+                            // Helper to update layer
+                            const updateLayer = (index) => {
+                                const selectedYear = years[index];
+                                yearDisplay.textContent = selectedYear;
+
+                                choroplethLayer.eachLayer((layer) => {
+                                    const feature = layer.feature;
+                                    const countryCode = feature.properties['ISO3166-1-Alpha-3'] ||
+                                        feature.properties['ISO3166-1-Alpha-2'] ||
+                                        feature.properties['Propinsi'];
+                                    const countryData = choroplethData.data[countryCode] ||
+                                        choroplethData.data[countryCode?.toUpperCase()];
+                                    const value = countryData ? (countryData[selectedYear] || 0) : null;
+                                    const countryName = feature.properties.name || feature.properties['Propinsi'] || countryCode;
+
+                                    const color = value !== null ? getColor(value, choroplethData.max_value) : '#ccc';
+
+                                    // Handle Point Layers (CircleMarker)
+                                    if (layer instanceof L.CircleMarker) {
+                                        const maxVal = choroplethData.max_value || 100;
+                                        const radius = value !== null ? Math.max(5, (Math.sqrt(value) / Math.sqrt(maxVal)) * 25) : 5;
+
+                                        layer.setStyle({
+                                            fillColor: color,
+                                            fillOpacity: 0.8,
+                                            radius: radius
+                                        });
+                                    } else {
+                                        // Handle Polygon Layers
+                                        layer.setStyle({
+                                            fillColor: color,
+                                            fillOpacity: value !== null ? 0.7 : 0.3
+                                        });
+                                    }
+
+                                    // Update popup
+                                    let popup = `<div class="text-sm"><b>${countryName}</b><br>`;
+                                    if (value !== null) {
+                                        popup += `${choroplethData.value_column}: ${formatNumber(value)}`;
+                                    } else {
+                                        popup += '<i>No data</i>';
+                                    }
+                                    popup += '</div>';
+                                    layer.setPopupContent(popup);
+                                });
+                            };
+
+                            // Manual Interaction
+                            yearSlider.oninput = function () {
+                                // Stop animation on manual drag
+                                if (playInterval) togglePlay();
+                                updateLayer(this.value);
+                            };
+
+                            // Play/Pause Function
+                            const togglePlay = () => {
+                                if (playInterval) {
+                                    clearInterval(playInterval);
+                                    playInterval = null;
+                                    playBtn.classList.remove('playing');
+                                    playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>'; // Play Icon
+                                } else {
+                                    playBtn.classList.add('playing');
+                                    playBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>'; // Pause Icon
+
+                                    playInterval = setInterval(() => {
+                                        let nextVal = parseInt(yearSlider.value) + 1;
+                                        if (nextVal >= years.length) {
+                                            nextVal = 0; // Loop back to start
+                                        }
+                                        yearSlider.value = nextVal;
+                                        updateLayer(nextVal);
+                                    }, 800); // 800ms per frame
+                                }
+                            };
+
+                            // Remove existing listener to prevent duplicates if layer re-toggled
+                            const newPlayBtn = playBtn.cloneNode(true);
+                            playBtn.parentNode.replaceChild(newPlayBtn, playBtn);
+                            newPlayBtn.addEventListener('click', togglePlay);
+                        }
+
+                        // Fit bounds to world view
+                        map.fitBounds([[-60, -180], [85, 180]]);
+
+                    } catch (err) {
+                        console.error('Error loading choropleth:', err);
+                        alert(`Gagal load choropleth: ${err.message}`);
+                        toggle.checked = false;
+                    }
+                } else if (layerType === 'geojson') {
+                    try {
+                        const url = `/api/layer-data/${folder}`;
+                        console.log(`Fetching GeoJSON via proxy: ${url}`);
+                        const response = await fetch(url);
+
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                        const geojsonData = await response.json();
+                        console.log(`Loaded ${geojsonData.features?.length || 0} features`);
+
+                        // 1. Hitung Nilai Max untuk Skala Warna
+                        let calculatedMax = 0;
+                        geojsonData.features.forEach(f => {
+                            let val = 0;
+                            const p = f.properties;
+                            if (p.GDP) val = parseFloat(p.GDP);
+                            else if (p['GDP per capita, PPP (constant 2021 international $)']) val = parseFloat(p['GDP per capita, PPP (constant 2021 international $)']);
+                            else if (p.Value) val = parseFloat(p.Value);
+                            else if (p.OBS_VALUE) val = parseFloat(p.OBS_VALUE);
+
+                            if (val > calculatedMax) calculatedMax = val;
+                        });
+
+                        // 2. Buat Layer GeoJSON
+                        const layer = L.geoJSON(geojsonData, {
+                            pointToLayer: (feature, latlng) => {
+                                let val = 0;
+                                const p = feature.properties;
+                                // Ambil nilai (sama logicnya dgn loop diatas)
+                                if (p.GDP) val = parseFloat(p.GDP);
+                                else if (p['GDP per capita, PPP (constant 2021 international $)']) val = parseFloat(p['GDP per capita, PPP (constant 2021 international $)']);
+                                else if (p.Value) val = parseFloat(p.Value);
+                                else if (p.OBS_VALUE) val = parseFloat(p.OBS_VALUE);
+
+                                // Styling Dinamis
+                                return L.circleMarker(latlng, {
+                                    // Radius responsif
+                                    radius: calculatedMax > 0 ? Math.min(Math.max((Math.sqrt(val) / Math.sqrt(calculatedMax)) * 20, 4), 30) : 5,
+                                    // Warna pakai calculatedMax
+                                    fillColor: getColor(val, calculatedMax),
+                                    color: '#fff',
+                                    weight: 1,
+                                    opacity: 1,
+                                    fillOpacity: 0.8
+                                });
+                            },
+                            onEachFeature: (feature, layer) => {
+                                if (feature.properties) {
+                                    let popupContent = '<div class="text-sm max-h-48 overflow-y-auto">';
+                                    for (const key in feature.properties) {
+                                        popupContent += `<b>${key}:</b> ${feature.properties[key]}<br>`;
+                                    }
+                                    popupContent += '</div>';
+                                    layer.bindPopup(popupContent);
+                                }
+                            }
+                        }).addTo(map);
+
+                        // 3. Simpan ke activeLayers & Zoom
+                        activeLayers[folder] = layer;
+                        if (geojsonData.features && geojsonData.features.length > 0) {
+                            map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+                        }
+
+                    } catch (err) {
+                        console.error('Error loading GeoJSON:', err);
+                        alert(`Gagal load layer: ${err.message}`);
+                        toggle.checked = false;
+                    }
+                } else {
+                    // --- LOGIKA TILES ---
+                    const layer = L.tileLayer(`${storageBaseUrl}/${folder}/{z}/{x}/{y}.png`, {
+                        tms: false,
+                        opacity: opacity,
+                        maxZoom: 18,
+                        minZoom: 0,
+                        maxNativeZoom: 12,
+                        errorTileUrl: ''
+                    }).addTo(map);
+
+                    console.log(`Added tile layer: ${folder}`);
+                    activeLayers[folder] = layer;
+                }
+
+            } else {
+                // --- LOGIKA MENGHAPUS LAYER (UNCHECK) ---
+                if (activeLayers[folder]) {
+                    const layerInfo = activeLayers[folder];
+                    if (layerInfo.type === 'choropleth') {
+                        map.removeLayer(layerInfo.layer);
+                        // Hide year slider and legend
+                        document.getElementById('yearSliderContainer').classList.remove('active');
+                        document.getElementById('legendContainer').classList.remove('active');
+                    } else {
+                        map.removeLayer(layerInfo.layer || layerInfo);
+                    }
+                    delete activeLayers[folder];
+                }
+            }
+        });
+
+        // Helper function to format numbers
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toFixed(0);
+        }
+
+
+        // Opacity slider functionality
+        const opacitySlider = document.getElementById('opacitySlider');
+        const opacityValue = document.getElementById('opacityValue');
+
+        opacitySlider.addEventListener('input', function (e) {
+            const val = parseFloat(e.target.value);
+            opacityValue.textContent = `${Math.round(val * 100)}%`;
+
+            // Update all active layers
+            Object.values(activeLayers).forEach(layer => {
+                layer.setOpacity(val);
+            });
+        });
+
+        // Basemap switcher
+        document.querySelectorAll('.basemap-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const basemapKey = this.dataset.basemap;
+
+                // Remove current basemap
+                map.removeLayer(currentBasemap);
+
+                // Add new basemap
+                currentBasemap = basemaps[basemapKey];
+                currentBasemap.addTo(map);
+
+                // Move basemap to bottom (below overlay layers)
+                currentBasemap.bringToBack();
+
+                // Update active button styles
+                document.querySelectorAll('.basemap-btn').forEach(b => {
+                    b.classList.remove('active-basemap', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
+                    b.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
+                });
+                this.classList.add('active-basemap', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
+                this.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
+            });
+        });
+
+        // ============================
+        // Mobile Menu Logic
+        // ============================
+
+        const menuBtn = document.getElementById('menuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            overlay.classList.add('opacity-100');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+        }
+
+        menuBtn.addEventListener('click', () => {
+            if (sidebar.classList.contains('-translate-x-full')) {
+                openSidebar();
+            } else {
+                closeSidebar();
+            }
+        });
+
+        // Close sidebar when clicking overlay
+        overlay.addEventListener('click', closeSidebar);
+
+        // Close sidebar when clicking on map (mobile UX)
+        map.on('click', () => {
+            if (!sidebar.classList.contains('-translate-x-full') && window.innerWidth < 768) {
+                closeSidebar();
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768) {
+                // Desktop: ensure sidebar is visible
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+            }
+        });
+
+        // ============================
+        // Dynamic Layer Refresh
+        // ============================
+
+        let currentLayerCount = document.querySelectorAll('.layer-toggle').length;
+
+        async function refreshLayers() {
+            const refreshBtn = document.getElementById('refreshLayersBtn');
+            const layerControls = document.getElementById('layer-controls');
+
+            // Animate button
+            refreshBtn.querySelector('svg').classList.add('animate-spin');
+
+            try {
+                const response = await fetch('/api/layers');
+                const data = await response.json();
+
+                if (data.success && data.layers) {
+                    // Rebuild layer list
+                    if (data.layers.length === 0) {
+                        layerControls.innerHTML = `
+                            <div class="text-center py-8 px-4">
+                                <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                                </svg>
+                                <p class="text-sm text-gray-500">Belum ada layer</p>
+                                <p class="text-xs text-gray-400 mt-1">Upload GeoTIFF untuk memulai</p>
+                            </div>`;
+                    } else {
+                        layerControls.innerHTML = data.layers.map(layer => `
+                            <div class="layer-item flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group">
+                                <div class="flex-1 min-w-0 flex items-center gap-2">
+                                    ${layer.layer_type === 'geojson' ? '<span class="text-sm" title="Point layer">📍</span>' : '<span class="text-sm" title="Tile layer">🗺️</span>'}
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-800 truncate">${layer.name}</p>
+                                        ${layer.description ? `<p class="text-xs text-gray-500 truncate">${layer.description}</p>` : ''}
+                                    </div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer ml-3 flex-shrink-0">
+                                    <input type="checkbox" class="sr-only peer layer-toggle" data-folder="${layer.folder_path}" data-type="${layer.layer_type || 'tiles'}">
+                                    <div class="toggle-switch w-10 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+                        `).join('');
+
+                        // Re-attach event listeners
+                        attachLayerToggleListeners();
+                    }
+
+                    currentLayerCount = data.layers.length;
+                    console.log(`Layers refreshed: ${data.layers.length} layers`);
+                }
+            } catch (err) {
+                console.error('Error refreshing layers:', err);
+            }
+
+            refreshBtn.querySelector('svg').classList.remove('animate-spin');
+        }
+
+        function attachLayerToggleListeners() {
+            document.querySelectorAll('.layer-toggle').forEach(toggle => {
+                toggle.addEventListener('change', async function () {
+                    const folder = this.dataset.folder;
+                    const layerType = this.dataset.type || 'tiles';
+                    const opacity = parseFloat(document.getElementById('opacitySlider').value);
+
+                    if (this.checked) {
+                        if (layerType === 'geojson') {
+                            try {
+                                // Use proxy API to bypass CORS
+                                const response = await fetch(`/api/layer-data/${folder}`);
+                                if (!response.ok) {
+                                    throw new Error(`HTTP ${response.status}`);
+                                }
+                                const geojsonData = await response.json();
+
+                                const layer = L.geoJSON(geojsonData, {
+                                    pointToLayer: (feature, latlng) => {
+                                        return L.circleMarker(latlng, {
+                                            radius: 8,
+                                            fillColor: '#3b82f6',
+                                            color: '#1e40af',
+                                            weight: 2,
+                                            opacity: 1,
+                                            fillOpacity: opacity
+                                        });
+                                    },
+                                    onEachFeature: (feature, layer) => {
+                                        if (feature.properties) {
+                                            let popupContent = '<div class="text-sm">';
+                                            if (feature.properties._popup) {
+                                                popupContent += `<strong>${feature.properties._popup}</strong><hr class="my-1">`;
+                                            }
+                                            for (const [key, value] of Object.entries(feature.properties)) {
+                                                if (key !== '_popup' && value) {
+                                                    popupContent += `<b>${key}:</b> ${value}<br>`;
+                                                }
+                                            }
+                                            popupContent += '</div>';
+                                            layer.bindPopup(popupContent);
+                                        }
+                                    }
+                                }).addTo(map);
+
+                                activeLayers[folder] = layer;
+
+                                if (geojsonData.features.length > 0) {
+                                    map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+                                }
+                            } catch (err) {
+                                console.error('Error loading GeoJSON:', err);
+                                this.checked = false;
+                            }
+                        } else {
+                            // Tile layer from R2 Storage
+                            // Upscale tiles when zooming beyond available zoom levels
+                            const layer = L.tileLayer(`${storageBaseUrl}/${folder}/{z}/{x}/{y}.png`, {
+                                tms: false,
+                                opacity: opacity,
+                                maxZoom: 18,
+                                minZoom: 0,
+                                maxNativeZoom: 12,  // Tiles generated up to zoom 12, upscale beyond
+                                errorTileUrl: ''
+                            }).addTo(map);
+
+                            console.log(`Added tile layer (refreshed): ${folder}`);
+                            activeLayers[folder] = layer;
+                        }
+                    } else {
+                        if (activeLayers[folder]) {
+                            map.removeLayer(activeLayers[folder]);
+                            delete activeLayers[folder];
+                        }
+                    }
+                });
+            });
+        }
+
+        // Refresh button click
+        document.getElementById('refreshLayersBtn').addEventListener('click', refreshLayers);
+
+        // Auto-check for new layers every 30 seconds
+        setInterval(async () => {
+            try {
+                const response = await fetch('/api/layers');
+                const data = await response.json();
+                if (data.success && data.layers.length !== currentLayerCount) {
+                    // New layers available - show indicator
+                    document.getElementById('refreshLayersBtn').classList.add('text-blue-500', 'animate-pulse');
+                }
+            } catch (e) { }
+        }, 30000);
+
+        // ============================
+        // Map Event Logging (Development)
+        // ============================
+
+        map.on('moveend', function () {
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            console.log(`Map View: [${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}] @ Zoom ${zoom}`);
+        });
+    </script>
+</body>
+
+</html>

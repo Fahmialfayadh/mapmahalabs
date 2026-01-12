@@ -1,0 +1,529 @@
+/* ===========================================
+   PetaSight Map - Main Stylesheet
+   Extracted from index.html
+   =========================================== */
+
+/* Full screen map */
+#map {
+    height: 100vh;
+    width: 100%;
+    z-index: 0;
+    background: #ffffff;
+}
+
+/* Font Setup */
+body {
+    font-family: 'Outfit', sans-serif;
+}
+
+
+.basemap-btn {
+    pointer-events: auto;
+}
+
+/* ===========================================
+   Scrollbar & Drawer
+   =========================================== */
+
+.drawer {
+    transition: transform 0.3s ease-in-out;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* ===========================================
+   Toggle Switch
+   =========================================== */
+
+.toggle-switch {
+    transition: background-color 0.2s ease;
+}
+
+.toggle-switch::after {
+    transition: transform 0.2s ease;
+}
+
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #4f46e5;
+}
+
+.toggle-checkbox:checked+.toggle-label {
+    background-color: #4f46e5;
+}
+
+/* ===========================================
+   Range Slider
+   =========================================== */
+
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    z-index: 2;
+}
+
+input[type="range"]:focus {
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+    background: #e2e8f0;
+    border-radius: 999px;
+    transition: background 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -7px;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+    transition: transform 0.1s ease, background 0.2s;
+    border: 2px solid white;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    background: #2563eb;
+}
+
+/* ===========================================
+   Sidebar Overlay (Mobile)
+   =========================================== */
+
+.sidebar-overlay {
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* ===========================================
+   Glassmorphism Sidebar
+   =========================================== */
+
+.glass-sidebar {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 20px 0 40px rgba(0, 0, 0, 0.05);
+}
+
+/* Aurora Background for Sidebar Header */
+.aurora-header {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.aurora-header::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.4) 0%, rgba(167, 139, 250, 0) 70%);
+    filter: blur(40px);
+    z-index: 0;
+}
+
+.aurora-header::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    right: -30px;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(59, 130, 246, 0) 70%);
+    filter: blur(40px);
+    z-index: 0;
+}
+
+/* ===========================================
+   Tabs
+   =========================================== */
+
+.tab-btn {
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    width: 0;
+    height: 3px;
+    background: #4f46e5;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+    border-radius: 99px;
+    opacity: 0;
+}
+
+.tab-btn.active {
+    color: #4f46e5;
+    font-weight: 700;
+}
+
+.tab-btn.active::after {
+    width: 60%;
+    opacity: 1;
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.4s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ===========================================
+   Layer Cards
+   =========================================== */
+
+.layer-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.layer-card:hover {
+    border-color: #a5b4fc;
+    box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.1);
+    transform: translateY(-2px);
+}
+
+.layer-card.expanded {
+    background: linear-gradient(to bottom, #fff, #f8fafc);
+    border-color: #818cf8;
+    box-shadow: 0 10px 40px -10px rgba(79, 70, 229, 0.15);
+}
+
+.layer-details {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.layer-card.expanded .layer-details {
+    max-height: 500px;
+    opacity: 1;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.layer-chevron {
+    transition: transform 0.3s ease;
+}
+
+.layer-card.expanded .layer-chevron {
+    transform: rotate(180deg);
+}
+
+.layer-detail-info {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease;
+    opacity: 0;
+}
+
+.layer-item.expanded .layer-detail-info {
+    max-height: 400px;
+    opacity: 1;
+    margin-top: 0.75rem;
+}
+
+.layer-item.expanded .layer-chevron {
+    transform: rotate(180deg);
+}
+
+/* ===========================================
+   Year Slider Control - Glassmorphism
+   =========================================== */
+
+.year-slider-container {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    padding: 16px 24px;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    z-index: 1000;
+    display: none;
+    min-width: 380px;
+    max-width: 90vw;
+    transition: all 0.3s ease;
+}
+
+.year-slider-container.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slider-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.year-display {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1e3a8a;
+    line-height: 1;
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+}
+
+.slider-wrapper {
+    position: relative;
+    width: 100%;
+    height: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.year-labels {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+/* Play Button */
+.play-btn {
+    background: #eff6ff;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #2563eb;
+    transition: all 0.2s ease;
+}
+
+.play-btn:hover {
+    background: #dbeafe;
+    transform: scale(1.05);
+}
+
+.play-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    margin-left: 2px;
+}
+
+.play-btn.playing svg {
+    margin-left: 0;
+}
+
+/* ===========================================
+   Legend - Minimalist
+   =========================================== */
+
+.legend-container {
+    position: fixed;
+    bottom: 30px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    z-index: 900;
+    display: none;
+    transition: opacity 0.3s ease;
+}
+
+.legend-container.active {
+    display: block;
+    animation: fadeIn 0.5s ease;
+}
+
+.legend-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.legend-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e293b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+}
+
+.legend-unit {
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-left: 8px;
+}
+
+.legend-bar-container {
+    position: relative;
+    padding-top: 4px;
+}
+
+.legend-gradient {
+    width: 180px;
+    height: 10px;
+    border-radius: 99px;
+    background: linear-gradient(to right, #FFEDA0, #FEB24C, #FD8D3C, #FC4E2A, #E31A1C, #BD0026, #800026);
+    margin-bottom: 6px;
+}
+
+.legend-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #475569;
+    margin-top: 4px;
+}
+
+/* ===========================================
+   Color Scheme Picker
+   =========================================== */
+
+.color-scheme-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.color-scheme-btn {
+    width: 40px;
+    height: 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.color-scheme-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.color-scheme-btn.active {
+    border-color: #1e3a8a;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.color-scheme-btn.active::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Color Scheme Gradients */
+.scheme-ylorrd {
+    background: linear-gradient(to right, #FFEDA0, #FEB24C, #FD8D3C, #FC4E2A, #E31A1C, #BD0026, #800026);
+}
+
+.scheme-blues {
+    background: linear-gradient(to right, #f7fbff, #deebf7, #c6dbef, #9ecae1, #6baed6, #3182bd, #08519c);
+}
+
+.scheme-greens {
+    background: linear-gradient(to right, #f7fcf5, #e5f5e0, #c7e9c0, #a1d99b, #74c476, #31a354, #006d2c);
+}
+
+.scheme-purples {
+    background: linear-gradient(to right, #fcfbfd, #efedf5, #dadaeb, #bcbddc, #9e9ac8, #807dba, #6a51a3, #4a1486);
+}
+
+.scheme-viridis {
+    background: linear-gradient(to right, #440154, #482878, #3e4989, #31688e, #26828e, #1f9e89, #35b779, #6ece58, #b5de2b, #fde725);
+}
+
+.scheme-plasma {
+    background: linear-gradient(to right, #0d0887, #46039f, #7201a8, #9c179e, #bd3786, #d8576b, #ed7953, #fb9f3a, #fdca26, #f0f921);
+}
+
+/* ===========================================
+   Animations
+   =========================================== */
+
+@keyframes slideUp {
+    from {
+        transform: translate(-50%, 20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

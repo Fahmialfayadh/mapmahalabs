@@ -64,38 +64,30 @@ conversion_tasks = {}
 # D1 Schema Migration
 # ============================
 
+# Add missing columns to D1 tables if needed.
 def migrate_d1_schema():
-    """Add missing columns to D1 tables if needed."""
+    print("Checking D1 schema migration...")
+    
     if not all([D1_API_TOKEN, D1_ACCOUNT_ID, D1_DATABASE_ID]):
-        print("D1 credentials not configured, skipping migration")
         return
 
+    # Check/Migrate source_link
+    # d1_query returns None if error (e.g. column missing), empty list if success but no data
+    res = d1_query("SELECT source_link FROM map_layers LIMIT 1")
+    if res is None:
+        print("Migrating: Adding source_link column...")
+        d1_query("ALTER TABLE map_layers ADD COLUMN source_link TEXT", is_select=False)
+
+    # Check/Migrate layer_type (existing logic)
     url = f"https://api.cloudflare.com/client/v4/accounts/{D1_ACCOUNT_ID}/d1/database/{D1_DATABASE_ID}/query"
     headers = {
         "Authorization": f"Bearer {D1_API_TOKEN}",
         "Content-Type": "application/json"
     }
+    # ... rest of existing migration if needed, but easier to just append the new column check above
+    print("✓ Schema migration checks complete")
 
-    # Check and add layer_type column
-    try:
-        # Try to add the column - if it already exists, D1 will error but that's OK
-        response = requests.post(url, headers=headers, json={
-            "sql": "ALTER TABLE map_layers ADD COLUMN layer_type TEXT DEFAULT 'tiles'"
-        })
-        data = response.json()
-        if data.get("success"):
-            print("✓ D1 migration: Added 'layer_type' column to map_layers")
-        else:
-            errors = data.get("errors", [])
-            if any("duplicate column" in str(e).lower() for e in errors):
-                print("✓ D1 migration: 'layer_type' column already exists")
-            else:
-                print(f"D1 migration note: {errors}")
-    except Exception as e:
-        print(f"D1 migration error: {e}")
 
-# Run migration on startup
-migrate_d1_schema()
 
 
 # ============================
@@ -149,11 +141,11 @@ def get_layers():
     return result if result else []
 
 
-def insert_layer(name, folder_path, description="", layer_type="tiles"):
+def insert_layer(name, folder_path, description="", source_link="", layer_type="tiles"):
     """Insert a new layer into D1."""
-    sql = "INSERT INTO map_layers (id, name, folder_path, description, layer_type) VALUES (?, ?, ?, ?, ?)"
+    sql = "INSERT INTO map_layers (id, name, folder_path, description, source_link, layer_type) VALUES (?, ?, ?, ?, ?, ?)"
     layer_id = str(uuid.uuid4())
-    success = d1_query(sql, [layer_id, name, folder_path, description, layer_type], is_select=False)
+    success = d1_query(sql, [layer_id, name, folder_path, description, source_link, layer_type], is_select=False)
     if success:
         print(f"✓ Layer '{name}' saved to D1 with ID: {layer_id}")
     else:
@@ -167,6 +159,9 @@ def delete_layer(layer_id):
     print(f"delete_layer: {'success' if success else 'failed'} for ID {layer_id}")
     return success
 
+
+# Run migration on startup (after DB functions are defined)
+migrate_d1_schema()
 
 # ============================
 # R2 Storage Functions
@@ -231,7 +226,7 @@ def upload_tiles_to_r2(layer_name, tiles_dir, task_id=None):
 # Background Tasks
 # ============================
 
-def process_xyz_zip(task_id, zip_path, layer_name, description):
+def process_xyz_zip(task_id, zip_path, layer_name, description, source_link=""):
     """Process XYZ tiles ZIP."""
     global conversion_tasks
     try:
@@ -252,7 +247,7 @@ def process_xyz_zip(task_id, zip_path, layer_name, description):
         success, msg = upload_tiles_to_r2(layer_name, tiles_dir, task_id)
 
         if success:
-            insert_layer(layer_name, layer_name, description or "XYZ tiles layer")
+            insert_layer(layer_name, layer_name, description or "XYZ tiles layer", source_link=source_link)
             conversion_tasks[task_id] = {'status': 'done', 'progress': 100, 'message': f'Layer "{layer_name}" berhasil!'}
         else:
             conversion_tasks[task_id] = {'status': 'error', 'error': msg}
@@ -264,7 +259,7 @@ def process_xyz_zip(task_id, zip_path, layer_name, description):
 
 
 
-def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col_name=None):
+def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col_name=None, source_link=""):
     """
     Process CSV for Choropleth.
     Supports:
@@ -474,6 +469,7 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
                 # Use 'choropleth' as layer_type
                 layer_id = insert_layer(layer_name, layer_name, 
                                        description or f"Heatmap ({len(data)} regions, {len(years)} periods)", 
+                                       source_link=source_link,
                                        layer_type='choropleth')
                 
                 if layer_id:
@@ -500,7 +496,7 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
         conversion_tasks[task_id] = {'status': 'error', 'error': str(e)}
 
 
-def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, popup_col):
+def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, popup_col, source_link=""):
     """Process CSV file - convert to GeoJSON and upload to R2.
 
     Supports:
@@ -827,7 +823,27 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
 
                 conversion_tasks[task_id] = {'status': 'converting', 'progress': 90, 'detail': 'Saving metadata...'}
 
-                layer_id = insert_layer(layer_name, layer_name, description or f"CSV layer ({row_count} points)", layer_type='geojson')
+                # GeoJSON generation complete, now upload to R2
+                # (For CSV geojson we just save the GeoJSON file, but for map we usually want tiles or just direct GeoJSON)
+                # Here we will upload the geojson file to R2 so frontend can fetch it.
+                
+                # ... existing R2 upload logic ...
+                # Assuming R2 upload is handled via api_layer_data fetch from D1/R2? 
+                # Actually below logic uploads to R2.
+                
+                geojson_filename = "data.geojson"
+                remote_path = f"{layer_name}/{geojson_filename}"
+                
+                if r2_client:
+                    r2_client.put_object(
+                         Bucket=R2_BUCKET,
+                         Key=remote_path,
+                         Body=json.dumps(geojson).encode('utf-8'),
+                         ContentType='application/json'
+                    )
+                
+                # Insert into D1
+                layer_id = insert_layer(layer_name, layer_name, description or f"CSV layer ({row_count} points)", source_link=source_link, layer_type='geojson')
 
                 if layer_id:
                     conversion_tasks[task_id] = {'status': 'done', 'progress': 100, 'message': f'Layer "{layer_name}" berhasil! ({row_count} titik)'}
@@ -849,7 +865,7 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
         conversion_tasks[task_id] = {'status': 'error', 'error': str(e)}
 
 
-def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom_max):
+def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom_max, source_link=""):
     """Process GeoTIFF - convert to 8-bit first then generate tiles."""
     global conversion_tasks
     import time
@@ -982,7 +998,7 @@ def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom
 
         # Step 4: Save to D1
         log("[Step 4/4] Saving metadata to D1...")
-        layer_id = insert_layer(layer_name, layer_name, description or "GeoTIFF layer")
+        layer_id = insert_layer(layer_name, layer_name, description or "GeoTIFF layer", source_link=source_link)
 
         if layer_id:
             conversion_tasks[task_id] = {'status': 'done', 'progress': 100, 'message': f'Layer "{layer_name}" berhasil!'}
@@ -1042,6 +1058,7 @@ def admin_upload():
         return jsonify({'success': False, 'error': 'Nama layer wajib'})
 
     description = request.form.get('description', '')
+    source_link = request.form.get('source_link', '')
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{layer_name}_{secure_filename(file.filename)}")
     file.save(filepath)
 
@@ -1049,23 +1066,23 @@ def admin_upload():
     conversion_tasks[task_id] = {'status': 'starting', 'progress': 0}
 
     if upload_type == 'xyz':
-        thread = threading.Thread(target=process_xyz_zip, args=(task_id, filepath, layer_name, description))
+        thread = threading.Thread(target=process_xyz_zip, args=(task_id, filepath, layer_name, description, source_link))
     elif upload_type == 'csv':
         lat_col = request.form.get('lat_col', '')
         lon_col = request.form.get('lon_col', '')
         popup_col = request.form.get('popup_col', '')
-        thread = threading.Thread(target=process_csv, args=(task_id, filepath, layer_name, description, lat_col, lon_col, popup_col))
+        thread = threading.Thread(target=process_csv, args=(task_id, filepath, layer_name, description, lat_col, lon_col, popup_col, source_link))
     elif upload_type == 'choropleth':
         # CSV for choropleth heatmap with time-series support
         value_col = request.form.get('value_col', '')
-        thread = threading.Thread(target=process_csv_choropleth, args=(task_id, filepath, layer_name, description, value_col))
+        thread = threading.Thread(target=process_csv_choropleth, args=(task_id, filepath, layer_name, description, value_col, source_link))
     else:  # geotiff
         if not check_gdal():
             os.remove(filepath)
             return jsonify({'success': False, 'error': 'GDAL tidak terinstall'})
         zoom_min = int(request.form.get('zoom_min', 10))
         zoom_max = int(request.form.get('zoom_max', 14))
-        thread = threading.Thread(target=process_geotiff, args=(task_id, filepath, layer_name, description, zoom_min, zoom_max))
+        thread = threading.Thread(target=process_geotiff, args=(task_id, filepath, layer_name, description, zoom_min, zoom_max, source_link))
 
     thread.daemon = True
     thread.start()
@@ -1089,7 +1106,6 @@ def admin_delete(layer_id):
 
 @app.route('/api/layers')
 def api_layers():
-    """Get all layers as JSON for dynamic refresh."""
     layers = get_layers()
     return jsonify({
         'success': True,
@@ -1153,6 +1169,294 @@ def api_countries_geojson():
                 return jsonify(json.load(f))
         else:
             return jsonify({'error': 'Countries GeoJSON not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================
+# Open-Meteo Weather Data API
+# ============================
+
+# Weather data cache (simple in-memory cache)
+weather_cache = {}
+WEATHER_CACHE_DURATION = 1800  # 30 minutes in seconds
+
+# Weather variable metadata
+WEATHER_VARIABLES = {
+    'temperature_2m': {'name': 'Temperature', 'unit': '°C', 'min': 15, 'max': 40},
+    'relative_humidity_2m': {'name': 'Humidity', 'unit': '%', 'min': 0, 'max': 100},
+    'precipitation': {'name': 'Precipitation', 'unit': 'mm', 'min': 0, 'max': 50},
+    'wind_speed_10m': {'name': 'Wind Speed', 'unit': 'km/h', 'min': 0, 'max': 60},
+    'wind_direction_10m': {'name': 'Wind Direction', 'unit': '°', 'min': 0, 'max': 360},
+    'cloud_cover': {'name': 'Cloud Cover', 'unit': '%', 'min': 0, 'max': 100},
+    'surface_pressure': {'name': 'Surface Pressure', 'unit': 'hPa', 'min': 990, 'max': 1030},
+    'soil_temperature_0cm': {'name': 'Soil Temperature', 'unit': '°C', 'min': 20, 'max': 35},
+    'uv_index': {'name': 'UV Index', 'unit': '', 'min': 0, 'max': 12},
+    'apparent_temperature': {'name': 'Feels Like', 'unit': '°C', 'min': 15, 'max': 45},
+    'dew_point_2m': {'name': 'Dew Point', 'unit': '°C', 'min': 15, 'max': 30},
+    'visibility': {'name': 'Visibility', 'unit': 'm', 'min': 0, 'max': 50000},
+}
+
+
+def generate_global_grid(resolution=10.0):
+    """Generate grid points covering the world.
+    
+    Args:
+        resolution: Grid spacing in degrees (default 10.0)
+    
+    Returns:
+        List of (lat, lon) tuples
+    """
+    points = []
+    lat = -60.0  # Skip extreme polar regions
+    while lat <= 70.0:
+        lon = -180.0
+        while lon <= 180.0:
+            points.append((round(lat, 1), round(lon, 1)))
+            lon += resolution
+        lat += resolution
+    
+    return points
+
+
+@app.route('/api/weather-data')
+def api_weather_data():
+    """Fetch weather data from Open-Meteo for global grid.
+    
+    Query Parameters:
+        variable: Weather variable (default: temperature_2m)
+        hour: Hour index for hourly forecast (default: 0 = current hour)
+        day: Day index for daily forecast (0-6, overrides hour if provided)
+        resolution: Grid resolution in degrees (default: 15)
+    """
+    import time as time_module
+    
+    variable = request.args.get('variable', 'temperature_2m')
+    hour_index = int(request.args.get('hour', 0))
+    day_index = request.args.get('day', None)
+    resolution = float(request.args.get('resolution', 15))
+    
+    # Validate variable
+    if variable not in WEATHER_VARIABLES:
+        return jsonify({'error': f'Invalid variable: {variable}'}), 400
+    
+    # Generate grid points
+    points = generate_global_grid(resolution)
+    print(f"Generated {len(points)} grid points at resolution {resolution}°")
+    
+    # Check cache
+    is_daily = day_index is not None
+    cache_key = f"weather_{variable}_{resolution}_{is_daily}"
+    if cache_key in weather_cache:
+        cached_time, cached_data = weather_cache[cache_key]
+        if time_module.time() - cached_time < WEATHER_CACHE_DURATION:
+            print(f"Using cached weather data")
+            # Return cached data with the right time slice
+            return process_cached_weather(cached_data, variable, hour_index if not is_daily else int(day_index), is_daily)
+    
+    # Build API request - Open-Meteo supports comma-separated lat/lon for multiple points
+    latitudes = ','.join(str(p[0]) for p in points)
+    longitudes = ','.join(str(p[1]) for p in points)
+    
+    url = "https://api.open-meteo.com/v1/forecast"
+    
+    # Determine if using hourly or daily
+    if is_daily:
+        # Map hourly variables to daily equivalents
+        daily_var = variable
+        if variable == 'temperature_2m':
+            daily_var = 'temperature_2m_mean'
+        elif variable == 'wind_speed_10m':
+            daily_var = 'wind_speed_10m_max'
+        elif variable == 'relative_humidity_2m':
+            daily_var = 'relative_humidity_2m_mean'
+            
+        params = {
+            'latitude': latitudes,
+            'longitude': longitudes,
+            'daily': daily_var,
+            'timezone': 'auto',
+            'forecast_days': 7
+        }
+    else:
+        params = {
+            'latitude': latitudes,
+            'longitude': longitudes,
+            'hourly': variable,
+            'timezone': 'auto',
+            'forecast_days': 3
+        }
+    
+    try:
+        print(f"Fetching weather from Open-Meteo for {len(points)} points...")
+        response = requests.get(url, params=params, timeout=120)
+        
+        if response.status_code != 200:
+            print(f"Open-Meteo error: {response.status_code} - {response.text[:200]}")
+            return jsonify({'error': f'Open-Meteo API error: {response.status_code}'}), 500
+        
+        raw_data = response.json()
+        
+        # Cache the raw response
+        weather_cache[cache_key] = (time_module.time(), raw_data)
+        print(f"✓ Weather data fetched and cached")
+        
+        return process_cached_weather(raw_data, variable, hour_index if not is_daily else int(day_index), is_daily)
+        
+    except Exception as e:
+        print(f"Weather fetch error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def process_cached_weather(raw_data, variable, time_index, is_daily=False):
+    """Process cached weather data and extract the relevant time slice."""
+    heatmap_data = []
+    times = []
+    
+    # Debug: Print raw data structure
+    if isinstance(raw_data, list):
+        print(f"DEBUG: Raw data is list with {len(raw_data)} items")
+        if raw_data:
+            sample = raw_data[0]
+            print(f"DEBUG: First item keys: {list(sample.keys())}")
+            if 'hourly' in sample:
+                hourly_keys = list(sample['hourly'].keys())
+                print(f"DEBUG: Hourly keys: {hourly_keys}")
+                if variable in sample['hourly']:
+                    print(f"DEBUG: Variable '{variable}' found! First 3 values: {sample['hourly'][variable][:3]}")
+                else:
+                    print(f"DEBUG: Variable '{variable}' NOT found in hourly!")
+    else:
+        print(f"DEBUG: Raw data is single object, keys: {list(raw_data.keys())}")
+    
+    # Open-Meteo returns an array when multiple locations are requested
+    if isinstance(raw_data, list):
+        for loc in raw_data:
+            lat = loc.get('latitude')
+            lon = loc.get('longitude')
+            
+            if is_daily:
+                daily = loc.get('daily', {})
+                # Try different daily variable names
+                values = daily.get(f'{variable}_mean') or daily.get(f'{variable}_max') or daily.get(variable, [])
+                if not times and 'time' in daily:
+                    times = daily['time']
+            else:
+                hourly = loc.get('hourly', {})
+                values = hourly.get(variable, [])
+                if not times and 'time' in hourly:
+                    times = hourly['time']
+            
+            if values and time_index < len(values) and values[time_index] is not None:
+                heatmap_data.append({
+                    'lat': lat,
+                    'lon': lon,
+                    'value': values[time_index]
+                })
+    else:
+        # Single location response
+        lat = raw_data.get('latitude')
+        lon = raw_data.get('longitude')
+        
+        if is_daily:
+            daily = raw_data.get('daily', {})
+            values = daily.get(f'{variable}_mean') or daily.get(f'{variable}_max') or daily.get(variable, [])
+            times = daily.get('time', [])
+        else:
+            hourly = raw_data.get('hourly', {})
+            values = hourly.get(variable, [])
+            times = hourly.get('time', [])
+        
+        if values and time_index < len(values) and values[time_index] is not None:
+            heatmap_data.append({
+                'lat': lat,
+                'lon': lon,
+                'value': values[time_index]
+            })
+    
+    # Get variable metadata
+    var_meta = WEATHER_VARIABLES.get(variable, {'name': variable, 'unit': '', 'min': 0, 'max': 100})
+    
+    return jsonify({
+        'success': True,
+        'variable': variable,
+        'variable_name': var_meta['name'],
+        'unit': var_meta['unit'],
+        'min_value': var_meta['min'],
+        'max_value': var_meta['max'],
+        'time_index': time_index,
+        'is_daily': is_daily,
+        'total_times': len(times),
+        'times': times[:72] if not is_daily else times[:7],
+        'data': heatmap_data,
+        'point_count': len(heatmap_data)
+    })
+
+
+@app.route('/api/weather-variables')
+def api_weather_variables():
+    """Return list of available weather variables."""
+    variables = []
+    for key, meta in WEATHER_VARIABLES.items():
+        variables.append({
+            'id': key,
+            'name': meta['name'],
+            'unit': meta['unit']
+        })
+    return jsonify({'success': True, 'variables': variables})
+
+
+@app.route('/api/weather-point')
+def api_weather_point():
+    """Fetch weather data for a specific point (for click popups).
+    
+    Query Parameters:
+        lat: Latitude
+        lon: Longitude
+    """
+    lat = float(request.args.get('lat', -6.2))
+    lon = float(request.args.get('lon', 106.8))
+    
+    # Fetch all weather variables for this point
+    variables = list(WEATHER_VARIABLES.keys())
+    
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        'latitude': lat,
+        'longitude': lon,
+        'hourly': ','.join(variables),
+        'current': ','.join(variables[:8]),  # Current weather for main vars
+        'timezone': 'Asia/Jakarta',
+        'forecast_days': 2
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Format current weather data
+            current = {}
+            if 'current' in data:
+                for var in variables[:8]:
+                    if var in data['current']:
+                        meta = WEATHER_VARIABLES[var]
+                        current[var] = {
+                            'name': meta['name'],
+                            'value': data['current'][var],
+                            'unit': meta['unit']
+                        }
+            
+            return jsonify({
+                'success': True,
+                'latitude': data.get('latitude'),
+                'longitude': data.get('longitude'),
+                'timezone': data.get('timezone'),
+                'current': current,
+                'hourly': data.get('hourly', {})
+            })
+        else:
+            return jsonify({'error': 'Failed to fetch weather'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

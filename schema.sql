@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS map_layers (
     name TEXT NOT NULL,
     folder_path TEXT NOT NULL,
     description TEXT,
+    source_link TEXT,
     layer_type TEXT DEFAULT 'tiles',  -- 'tiles' | 'geojson'
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

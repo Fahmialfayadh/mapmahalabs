@@ -352,7 +352,7 @@ document.getElementById('layersList').addEventListener('change', async function 
                             fillColor: value !== null ? getColor(value, choroplethData.max_value, layerColorSchemes[folder] || 'ylorrd') : '#ccc',
                             weight: 0.5,
                             opacity: 1,
-                            color: '#666',
+                            color: '#e21515',
                             fillOpacity: value !== null ? 0.7 : 0.3
                         };
                     },
@@ -726,40 +726,55 @@ document.querySelectorAll('.basemap-btn').forEach(btn => {
 // ============================
 // Mobile Menu Logic
 // ============================
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('MENU SCRIPT OK');
 
-const menuBtn = document.getElementById('menuBtn');
-const sidebar = document.getElementById('sidebar');
-const overlay = document.getElementById('sidebarOverlay');
+    const menuBtn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
 
-function openSidebar() {
-    sidebar.classList.remove('-translate-x-full');
-    overlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
-    overlay.classList.add('opacity-100');
-}
-
-function closeSidebar() {
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('opacity-0', 'pointer-events-none');
-    setTimeout(() => overlay.classList.add('hidden'), 300);
-}
-
-menuBtn.addEventListener('click', () => {
-    if (sidebar.classList.contains('-translate-x-full')) {
-        openSidebar();
-    } else {
-        closeSidebar();
+    if (!menuBtn || !sidebar || !overlay) {
+        console.error('Menu elements missing');
+        return;
     }
-});
 
-// Close sidebar when clicking overlay
-overlay.addEventListener('click', closeSidebar);
+    function openSidebar() {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        overlay.classList.add('opacity-100');
+    }
+
+    function closeSidebar() {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+    }
+
+    menuBtn.addEventListener('click', () => {
+        sidebar.classList.contains('-translate-x-full')
+            ? openSidebar()
+            : closeSidebar();
+    });
+
+    overlay.addEventListener('click', closeSidebar);
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 768) {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+        }
+    });
+
+
 
 // Close sidebar when clicking on map (mobile UX) AND show weather data popup
 map.on('click', async (e) => {
     // Close sidebar on mobile
-    if (!sidebar.classList.contains('-translate-x-full') && window.innerWidth < 768) {
-        closeSidebar();
-    }
+      e.stopPropagation(); // INI KUNCI
+         sidebar.classList.contains('-translate-x-full')
+        ? openSidebar()
+        : closeSidebar();
+    
 
     // If weather layer is active, show weather data for clicked location
     const activeWeatherVars = Object.keys(weatherLayers);
@@ -814,10 +829,10 @@ map.on('click', async (e) => {
                                         <div style="font-size: 24px; font-weight: 700; color: ${color}; margin-bottom: 4px;">
                                             ${value.toFixed(1)}${scale.unit}
                                         </div>
-                                        <div style="font-size: 12px; font-weight: 600; color: #1e293b;">
+                                        <div style="font-size: 12px; font-weight: 600; color: #d77b26;">
                                             ${scale.name}
                                         </div>
-                                        <div style="font-size: 10px; color: #64748b; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
+                                        <div style="font-size: 10px; color: #e68211; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ff9500;">
                                             📍 ${closestPoint.lat.toFixed(2)}°, ${closestPoint.lon.toFixed(2)}°
                                         </div>
                                         ${formattedTime ? `<div style="font-size: 10px; color: #94a3b8;">🕐 ${formattedTime}</div>` : ''}
@@ -866,7 +881,7 @@ map.on('click', async (e) => {
         }
     }
 });
-
+});
 // Handle window resize
 window.addEventListener('resize', () => {
     if (window.innerWidth >= 768) {
@@ -1212,9 +1227,9 @@ async function fetchAndRenderWeather(variable, hourIndex = 0) {
                     const color = getWeatherColor(value, variable);
                     layer.bindPopup(`
                                 <div style="font-family: Outfit, sans-serif; text-align: center; min-width: 120px;">
-                                    <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${countryName}</div>
+                                    <div style="font-weight: 600; color: #ffffff; margin-bottom: 4px;">${countryName}</div>
                                     <div style="font-size: 24px; font-weight: 700; color: ${color};">${value.toFixed(1)}${scale.unit}</div>
-                                    <div style="font-size: 11px; color: #666;">${scale.name}</div>
+                                    <div style="font-size: 11px; color: #fffcfba2;">${scale.name}</div>
                                 </div>
                             `);
                 }
@@ -1303,7 +1318,24 @@ function showWeatherTimeControl(variable, currentHour) {
         document.getElementById('map').appendChild(control);
 
         // Event listeners
-        document.getElementById('weatherTimeSlider').addEventListener('input', async function () {
+       const slider = document.getElementById('weatherTimeSlider');
+
+        // ambil jam sekarang (0–23)
+        const nowHour = new Date().getHours();
+
+        // set default value slider
+        slider.value = nowHour;
+
+        // update tampilan jam
+        updateWeatherTimeDisplay(nowHour);
+
+        // render cuaca awal kalau ada variabel aktif
+        if (activeWeatherVariable) {
+            fetchAndRenderWeather(activeWeatherVariable, nowHour);
+        }
+
+        // listener tetap
+        slider.addEventListener('input', async function () {
             const hour = parseInt(this.value);
             updateWeatherTimeDisplay(hour);
             if (activeWeatherVariable) {

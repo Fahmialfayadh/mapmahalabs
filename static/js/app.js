@@ -225,7 +225,8 @@ document.getElementById('layersList').addEventListener('change', async function 
     const toggle = e.target;
     const folder = toggle.dataset.folder;
     const layerType = toggle.dataset.type || 'tiles';
-    const opacity = parseFloat(document.getElementById('opacitySlider').value);
+    const opacitySlider = document.getElementById('opacitySlider');
+    const opacity = opacitySlider ? parseFloat(opacitySlider.value) : 1.0;
 
     console.log(`Toggle layer: ${folder}, type: ${layerType}, checked: ${toggle.checked}`);
 
@@ -365,7 +366,7 @@ document.getElementById('layersList').addEventListener('change', async function 
                             choroplethData.data[countryCode?.toUpperCase()];
                         const value = countryData ? (countryData[currentYear] || 0) : null;
 
-                        let popup = `<div class="text-sm"><b>${countryName}</b><br>`;
+                        let popup = `<div class="text-country"><b style="font-size: 12px; color: #ffffffff">${countryName}</b><br>`;
                         if (value !== null) {
                             popup += `${choroplethData.value_column}: ${formatNumber(value)}`;
                         } else {
@@ -385,7 +386,6 @@ document.getElementById('layersList').addEventListener('change', async function 
                 };
 
                 // 5. Year slider event handler
-                // 5. Year slider & Animation logic
                 if (hasYears) {
                     const yearSlider = document.getElementById('yearSlider');
                     const yearDisplay = document.getElementById('yearDisplay');
@@ -428,7 +428,7 @@ document.getElementById('layersList').addEventListener('change', async function 
                             }
 
                             // Update popup
-                            let popup = `<div class="text-sm"><b>${countryName}</b><br>`;
+                            let popup = `<div class="text-country"><b style="font-size: 12px; color: #ffffffff">${countryName}</b><br>`;
                             if (value !== null) {
                                 popup += `${choroplethData.value_column}: ${formatNumber(value)}`;
                             } else {
@@ -680,23 +680,25 @@ document.querySelectorAll('.color-scheme-picker').forEach(picker => {
 const opacitySlider = document.getElementById('opacitySlider');
 const opacityValue = document.getElementById('opacityValue');
 
-opacitySlider.addEventListener('input', function (e) {
-    const val = parseFloat(e.target.value);
-    opacityValue.textContent = `${Math.round(val * 100)}%`;
+if (opacitySlider) {
+    opacitySlider.addEventListener('input', function (e) {
+        const val = parseFloat(e.target.value);
+        if (opacityValue) opacityValue.textContent = `${Math.round(val * 100)}%`;
 
-    // Update all active layers
-    Object.values(activeLayers).forEach(layerInfo => {
-        const layer = layerInfo.layer || layerInfo;
-        if (layer.setOpacity) {
-            layer.setOpacity(val);
-        } else if (layer.eachLayer) {
-            // For GeoJSON/choropleth layers
-            layer.eachLayer(l => {
-                if (l.setStyle) l.setStyle({ fillOpacity: val });
-            });
-        }
+        // Update all active layers
+        Object.values(activeLayers).forEach(layerInfo => {
+            const layer = layerInfo.layer || layerInfo;
+            if (layer.setOpacity) {
+                layer.setOpacity(val);
+            } else if (layer.eachLayer) {
+                // For GeoJSON/choropleth layers
+                layer.eachLayer(l => {
+                    if (l.setStyle) l.setStyle({ fillOpacity: val });
+                });
+            }
+        });
     });
-});
+}
 
 // Basemap switcher
 document.querySelectorAll('.basemap-btn').forEach(btn => {
@@ -767,64 +769,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-// Close sidebar when clicking on map (mobile UX) AND show weather data popup
-map.on('click', async (e) => {
-    // Close sidebar on mobile
-      e.stopPropagation(); // INI KUNCI
-         sidebar.classList.contains('-translate-x-full')
-        ? openSidebar()
-        : closeSidebar();
-    
+    // Close sidebar when clicking on map (mobile UX) AND show weather data popup
+    map.on('click', async (e) => {
+        // Close sidebar on mobile
+        e.stopPropagation(); // INI KUNCI
+        sidebar.classList.contains('-translate-x-full')
+            ? openSidebar()
+            : closeSidebar();
 
-    // If weather layer is active, show weather data for clicked location
-    const activeWeatherVars = Object.keys(weatherLayers);
-    if (activeWeatherVars.length > 0) {
-        const clickLat = e.latlng.lat;
-        const clickLng = e.latlng.lng;
 
-        // Get the active weather variable
-        const variable = activeWeatherVars[0];
-        const cachedData = weatherDataCache[variable];
+        // If weather layer is active, show weather data for clicked location
+        const activeWeatherVars = Object.keys(weatherLayers);
+        if (activeWeatherVars.length > 0) {
+            const clickLat = e.latlng.lat;
+            const clickLng = e.latlng.lng;
 
-        if (cachedData && cachedData.length > 0) {
-            // Find the closest data point (using backend format: lat, lon, value)
-            let closestPoint = null;
-            let closestDist = Infinity;
+            // Get the active weather variable
+            const variable = activeWeatherVars[0];
+            const cachedData = weatherDataCache[variable];
 
-            cachedData.forEach(point => {
-                const dist = Math.sqrt(
-                    Math.pow(clickLat - point.lat, 2) +
-                    Math.pow(clickLng - point.lon, 2)
-                );
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    closestPoint = point;
-                }
-            });
+            if (cachedData && cachedData.length > 0) {
+                // Find the closest data point (using backend format: lat, lon, value)
+                let closestPoint = null;
+                let closestDist = Infinity;
 
-            // Show popup if the closest point is within reasonable range
-            if (closestPoint && closestDist < 15) {
-                const scale = weatherColorScales[variable];
-                const value = closestPoint.value;
-
-                if (value !== null && value !== undefined) {
-                    // Format time
-                    const timeStr = weatherTimeLabels[currentWeatherHourIndex] || '';
-                    let formattedTime = '';
-                    if (timeStr) {
-                        const date = new Date(timeStr);
-                        formattedTime = date.toLocaleDateString('id-ID', {
-                            day: 'numeric', month: 'short', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit'
-                        });
+                cachedData.forEach(point => {
+                    const dist = Math.sqrt(
+                        Math.pow(clickLat - point.lat, 2) +
+                        Math.pow(clickLng - point.lon, 2)
+                    );
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestPoint = point;
                     }
+                });
 
-                    const color = getWeatherColor(value, variable);
+                // Show popup if the closest point is within reasonable range
+                if (closestPoint && closestDist < 15) {
+                    const scale = weatherColorScales[variable];
+                    const value = closestPoint.value;
 
-                    // Show popup
-                    L.popup()
-                        .setLatLng(e.latlng)
-                        .setContent(`
+                    if (value !== null && value !== undefined) {
+                        // Format time
+                        const timeStr = weatherTimeLabels[currentWeatherHourIndex] || '';
+                        let formattedTime = '';
+                        if (timeStr) {
+                            const date = new Date(timeStr);
+                            formattedTime = date.toLocaleDateString('id-ID', {
+                                day: 'numeric', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                            });
+                        }
+
+                        const color = getWeatherColor(value, variable);
+
+                        // Show popup
+                        L.popup()
+                            .setLatLng(e.latlng)
+                            .setContent(`
                                     <div style="font-family: 'Outfit', system-ui, sans-serif; min-width: 140px;">
                                         <div style="font-size: 24px; font-weight: 700; color: ${color}; margin-bottom: 4px;">
                                             ${value.toFixed(1)}${scale.unit}
@@ -838,27 +840,27 @@ map.on('click', async (e) => {
                                         ${formattedTime ? `<div style="font-size: 10px; color: #94a3b8;">🕐 ${formattedTime}</div>` : ''}
                                     </div>
                                 `)
-                        .openOn(map);
+                            .openOn(map);
+                    }
                 }
-            }
-        } else {
-            // No cached data, fetch for clicked location using backend API
-            try {
-                const url = `/api/weather-point?lat=${clickLat}&lon=${clickLng}`;
-                const response = await fetch(url);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.current) {
-                        const scale = weatherColorScales[variable];
-                        const currentData = data.current[variable];
-                        const value = currentData?.value;
+            } else {
+                // No cached data, fetch for clicked location using backend API
+                try {
+                    const url = `/api/weather-point?lat=${clickLat}&lon=${clickLng}`;
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.current) {
+                            const scale = weatherColorScales[variable];
+                            const currentData = data.current[variable];
+                            const value = currentData?.value;
 
-                        if (value !== null && value !== undefined) {
-                            const color = getWeatherColor(value, variable);
+                            if (value !== null && value !== undefined) {
+                                const color = getWeatherColor(value, variable);
 
-                            L.popup()
-                                .setLatLng(e.latlng)
-                                .setContent(`
+                                L.popup()
+                                    .setLatLng(e.latlng)
+                                    .setContent(`
                                             <div style="font-family: 'Outfit', system-ui, sans-serif; min-width: 140px;">
                                                 <div style="font-size: 24px; font-weight: 700; color: ${color}; margin-bottom: 4px;">
                                                     ${value.toFixed(1)}${scale.unit}
@@ -871,16 +873,16 @@ map.on('click', async (e) => {
                                                 </div>
                                             </div>
                                         `)
-                                .openOn(map);
+                                    .openOn(map);
+                            }
                         }
                     }
+                } catch (err) {
+                    console.error('Error fetching weather for clicked location:', err);
                 }
-            } catch (err) {
-                console.error('Error fetching weather for clicked location:', err);
             }
         }
-    }
-});
+    });
 });
 // Handle window resize
 window.addEventListener('resize', () => {
@@ -980,7 +982,7 @@ function attachLayerToggleListeners() {
                             },
                             onEachFeature: (feature, layer) => {
                                 if (feature.properties) {
-                                    let popupContent = '<div class="text-sm">';
+                                    let popupContent = '<div class="text-country">';
                                     if (feature.properties._popup) {
                                         popupContent += `<strong>${feature.properties._popup}</strong><hr class="my-1">`;
                                     }
@@ -1318,7 +1320,7 @@ function showWeatherTimeControl(variable, currentHour) {
         document.getElementById('map').appendChild(control);
 
         // Event listeners
-       const slider = document.getElementById('weatherTimeSlider');
+        const slider = document.getElementById('weatherTimeSlider');
 
         // ambil jam sekarang (0–23)
         const nowHour = new Date().getHours();

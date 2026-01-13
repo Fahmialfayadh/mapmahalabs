@@ -26,7 +26,8 @@ body {
    =========================================== */
 .bg-black-50\/50 {
     background-color: #FFF1F0;
-}   
+}
+
 .drawer {
     transition: transform 0.3s ease-in-out;
 }
@@ -117,14 +118,20 @@ input[type="range"]::-webkit-slider-thumb:hover {
    Sidebar Overlay (Mobile)
    =========================================== */
 #menuBtn {
-  z-index: 9999;
+    z-index: 9999;
 
-  pointer-events: auto;         
+    pointer-events: auto;
 
 }
 
 .sidebar-overlay {
     transition: opacity 0.3s ease-in-out;
+}
+
+.text-country {
+    font-size: 12px;
+    font-weight: 600;
+    color: #d77b26;
 }
 
 /* ===========================================
@@ -218,20 +225,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
    =========================================== */
 
 .layer-card {
-    background: linear-gradient(
-    135deg,
-    #F6ECFF,
-    #FFEFF4
-    );
+    background: linear-gradient(135deg,
+            #F6ECFF,
+            #FFEFF4);
 
     border: 1px solid #69696995;
-    border-radius: 16px;        
+    border-radius: 16px;
     margin-bottom: 12px;
     overflow: hidden;
     transition:
-     background 0.25s ease,
-     transform 0.15s ease,
-     box-shadow 0.15s ease;
+        background 0.25s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
 .layer-card:hover {
@@ -241,11 +246,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .layer-card.expanded {
-    background: linear-gradient(
-    135deg,
-    #EAF2FF,
-    #F4ECFF
-  );
+    background: linear-gradient(135deg,
+            #EAF2FF,
+            #F4ECFF);
     border-color: #818cf8;
     box-shadow: 0 10px 40px -10px rgba(79, 70, 229, 0.15);
     transform: scale(1.02);
@@ -296,6 +299,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color: #ffffff;
     text-decoration: underline;
 }
+
 /* ===========================================
    Year Slider Control - Glassmorphism
    =========================================== */
@@ -463,11 +467,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* ===========================================
    pop up styles
    =========================================== */
-.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
     background: rgb(0, 0, 0);
     color: #333;
     box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
 }
+
 /* ===========================================
    Color Scheme Picker
    =========================================== */

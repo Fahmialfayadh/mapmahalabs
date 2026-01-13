@@ -160,6 +160,32 @@ def delete_layer(layer_id):
     return success
 
 
+def update_layer(layer_id, name=None, description=None, source_link=None):
+    """Update a layer's metadata in D1."""
+    # Build dynamic UPDATE query based on provided fields
+    updates = []
+    params = []
+    
+    if name is not None:
+        updates.append("name = ?")
+        params.append(name)
+    if description is not None:
+        updates.append("description = ?")
+        params.append(description)
+    if source_link is not None:
+        updates.append("source_link = ?")
+        params.append(source_link)
+    
+    if not updates:
+        return False
+    
+    params.append(layer_id)
+    sql = f"UPDATE map_layers SET {', '.join(updates)} WHERE id = ?"
+    success = d1_query(sql, params, is_select=False)
+    print(f"update_layer: {'success' if success else 'failed'} for ID {layer_id}")
+    return success
+
+
 # Run migration on startup (after DB functions are defined)
 migrate_d1_schema()
 
@@ -1102,6 +1128,28 @@ def admin_delete(layer_id):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/admin/update/<layer_id>', methods=['PUT'])
+def admin_update(layer_id):
+    """Update layer metadata (name, description, source_link)."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        name = data.get('name')
+        description = data.get('description')
+        source_link = data.get('source_link')
+        
+        success = update_layer(layer_id, name=name, description=description, source_link=source_link)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Layer berhasil diupdate'})
+        else:
+            return jsonify({'success': False, 'error': 'Gagal update layer'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/layers')

@@ -744,12 +744,14 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebar.classList.remove('-translate-x-full');
         overlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
         overlay.classList.add('opacity-100');
+        menuBtn.classList.add('sidebar-open');
     }
 
     function closeSidebar() {
         sidebar.classList.add('-translate-x-full');
         overlay.classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => overlay.classList.add('hidden'), 300);
+        menuBtn.classList.remove('sidebar-open');
     }
 
     menuBtn.addEventListener('click', () => {
@@ -764,6 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.innerWidth >= 768) {
             sidebar.classList.remove('-translate-x-full');
             overlay.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+            menuBtn.classList.remove('sidebar-open');
         }
     });
 
@@ -771,11 +774,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Close sidebar when clicking on map (mobile UX) AND show weather data popup
     map.on('click', async (e) => {
-        // Close sidebar on mobile
-        e.stopPropagation(); // INI KUNCI
-        sidebar.classList.contains('-translate-x-full')
-            ? openSidebar()
-            : closeSidebar();
+        // Close sidebar on mobile (only close, don't toggle)
+        if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+            closeSidebar();
+        }
 
 
         // If weather layer is active, show weather data for clicked location

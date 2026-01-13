@@ -13,7 +13,7 @@
 
 /* Font Setup */
 body {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 
@@ -118,10 +118,21 @@ input[type="range"]::-webkit-slider-thumb:hover {
    Sidebar Overlay (Mobile)
    =========================================== */
 #menuBtn {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
     z-index: 9999;
-
     pointer-events: auto;
+    /* Ensure button stays visible when sidebar closes */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
 
+/* When sidebar is open on mobile, move button to follow sidebar edge */
+@media (max-width: 767px) {
+    #menuBtn.sidebar-open {
+        left: calc(20rem + 1rem);
+        /* sidebar width (w-80 = 20rem) + margin */
+    }
 }
 
 .sidebar-overlay {

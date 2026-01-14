@@ -550,6 +550,41 @@
     <!-- Map Container -->
     <div id="map"></div>
 
+    <!-- Floating Ranking Panel (on map) -->
+    <div id="rankingContainer" class="ranking-container">
+        <!-- Toggle Button -->
+        <button id="rankingToggleBtn" class="ranking-toggle-btn" title="Toggle Ranking" data-default="true"> Ranking
+            <svg class="ranking-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        <!-- Ranking Content (collapsible) -->
+        <div id="rankingContent" class="ranking-content">
+            <div class="ranking-header">
+                <div class="flex items-center gap-2">
+                    <span class="ranking-title" id="rankingTitle">Top Ranking</span>
+                    <button id="rankingSortBtn" class="ranking-sort-btn" title="Ubah Urutan">
+                        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
+                            fill="none">
+                            <path d="M3 6h18M3 12h18M3 18h18" />
+                        </svg>
+                    </button>
+                </div>
+                <span class="ranking-year-badge" id="rankingYearBadge">2024</span>
+            </div>
+
+            <div class="ranking-list" id="rankingList">
+                <!-- Items will be injected by JS -->
+            </div>
+
+            <button id="rankingMoreBtn" class="ranking-more-btn">
+                <span>+10 Lagi</span>
+                <span class="ranking-remaining" id="rankingRemaining"></span>
+            </button>
+        </div>
+    </div>
+
     <!-- Year Slider Control (for choropleth layers) -->
     <div id="yearSliderContainer" class="year-slider-container">
         <div class="slider-header">
@@ -606,9 +641,13 @@
             storageUrl: "{{ storage_url }}"
         };
     </script>
-
-    <!-- Main Application JavaScript -->
-    <script src="/static/js/app.js"></script>
+    <script>
+        // Inject mappings from backend
+        window.COUNTRY_MAPPING = {{ country_mapping | tojson | safe }};
+    </script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 
 </html>

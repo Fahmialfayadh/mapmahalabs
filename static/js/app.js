@@ -444,6 +444,8 @@ document.getElementById('layersList').addEventListener('change', async function 
                         // Stop animation on manual drag
                         if (playInterval) togglePlay();
                         updateLayer(this.value);
+                        // Update ranking for selected year
+                        updateRankingPanel(folder, choroplethData, years[this.value]);
                     };
 
                     // Play/Pause Function
@@ -464,6 +466,8 @@ document.getElementById('layersList').addEventListener('change', async function 
                                 }
                                 yearSlider.value = nextVal;
                                 updateLayer(nextVal);
+                                // Update ranking during animation
+                                updateRankingPanel(folder, choroplethData, years[nextVal]);
                             }, 800); // 800ms per frame
                         }
                     };
@@ -476,6 +480,10 @@ document.getElementById('layersList').addEventListener('change', async function 
 
                 // Fit bounds to world view
                 map.fitBounds([[-60, -180], [85, 180]]);
+
+                // 6. Update ranking panel
+                const initialYear = hasYears ? years[years.length - 1] : 'all';
+                updateRankingPanel(folder, choroplethData, initialYear);
 
             } catch (err) {
                 console.error('Error loading choropleth:', err);
@@ -586,8 +594,12 @@ document.getElementById('layersList').addEventListener('change', async function 
                 // Hide year slider and legend
                 document.getElementById('yearSliderContainer').classList.remove('active');
                 document.getElementById('legendContainer').classList.remove('active');
+                // Hide ranking panel
+                hideRankingPanel(folder);
             } else {
                 map.removeLayer(layerInfo.layer || layerInfo);
+                // Hide ranking for geojson layers too
+                hideRankingPanel(folder);
             }
             delete activeLayers[folder];
         }
@@ -600,6 +612,325 @@ function formatNumber(num) {
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toFixed(0);
 }
+
+// ============================
+// Ranking Panel Functions
+// ============================
+
+// Store ranking state
+const rankingState = {
+    rankings: [],
+    currentCount: 10,
+    year: 'all',
+    folder: null,
+    choroplethData: null,
+    sortOrder: 'desc' // 'desc' (Top) or 'asc' (Bottom)
+};
+
+/**
+ * Generate sorted ranking data from choropleth/geojson data
+ */
+function generateRankingData(choroplethData, year = 'all') {
+    const data = choroplethData.data;
+    const rankings = [];
+
+    for (const regionCode in data) {
+        const regionData = data[regionCode];
+        const value = year !== 'all' ? (regionData[year] || 0) : Object.values(regionData)[0] || 0;
+
+        if (value > 0) {
+            rankings.push({
+                code: regionCode,
+                name: formatRegionName(regionCode),
+                value: value
+            });
+        }
+    }
+
+    // Sort by value based on state
+    rankings.sort((a, b) => {
+        return rankingState.sortOrder === 'asc'
+            ? a.value - b.value
+            : b.value - a.value;
+    });
+
+    return rankings;
+}
+
+/**
+ * Format region code to readable name
+ */
+function formatRegionName(code) {
+    if (!code) return 'Unknown';
+
+    // 1. Try lookup in global mapping (from pycountry)
+    if (window.COUNTRY_MAPPING) {
+        // Try exact match
+        if (window.COUNTRY_MAPPING[code]) return window.COUNTRY_MAPPING[code];
+        // Try uppercase (common for ISO codes)
+        if (window.COUNTRY_MAPPING[code.toUpperCase()]) return window.COUNTRY_MAPPING[code.toUpperCase()];
+    }
+
+    // 2. Fallback: Title Case
+    return code.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+/**
+ * Get position class for ranking badge
+ */
+function getPositionClass(position) {
+    if (position === 1) return 'gold';
+    if (position === 2) return 'silver';
+    if (position === 3) return 'bronze';
+    return 'normal';
+}
+
+/**
+ * Generate ranking HTML for a slice of data
+ */
+function generateRankingHTML(rankings, startIndex, count) {
+    const endIndex = Math.min(startIndex + count, rankings.length);
+    let html = '';
+
+    for (let i = startIndex; i < endIndex; i++) {
+        const item = rankings[i];
+        const position = i + 1;
+        const positionClass = getPositionClass(position);
+
+        html += `
+            <div class="ranking-item" data-region="${item.code}">
+                <span class="ranking-position ${positionClass}">${position}</span>
+                <span class="ranking-name" title="${item.name}">${item.name}</span>
+                <span class="ranking-value">${formatNumber(item.value)}</span>
+            </div>
+        `;
+    }
+
+    return html;
+}
+
+/**
+ * Show and populate floating ranking panel
+ */
+function showRankingPanel(folder, choroplethData, year = 'all') {
+    const container = document.getElementById('rankingContainer');
+    const listEl = document.getElementById('rankingList');
+    const titleEl = document.getElementById('rankingTitle'); // Add this
+    const sortBtn = document.getElementById('rankingSortBtn'); // Add this
+    const yearBadge = document.getElementById('rankingYearBadge');
+    const moreBtn = document.getElementById('rankingMoreBtn');
+    const remainingEl = document.getElementById('rankingRemaining');
+
+    if (!container || !listEl) return;
+
+    // Reset sort order to default (desc/Top) when switching layers
+    // Note: if just updating year (same folder), we might want to keep sort order
+    if (rankingState.folder !== folder) {
+        rankingState.sortOrder = 'desc';
+    }
+
+    // Generate rankings
+    const rankings = generateRankingData(choroplethData, year);
+
+    // Store state
+    rankingState.rankings = rankings;
+    rankingState.currentCount = 10;
+    rankingState.year = year;
+    rankingState.folder = folder;
+    rankingState.choroplethData = choroplethData;
+    // sortOrder is already set above or preserved
+
+    // Update UI for Sort Order
+    if (titleEl) {
+        titleEl.textContent = rankingState.sortOrder === 'desc' ? 'Top Ranking' : 'Bottom Ranking';
+    }
+    if (sortBtn) {
+        if (rankingState.sortOrder === 'asc') {
+            sortBtn.classList.add('asc');
+        } else {
+            sortBtn.classList.remove('asc');
+        }
+    }
+
+    // Update year badge
+    if (year !== 'all') {
+        yearBadge.textContent = year;
+        yearBadge.style.display = 'block';
+    } else {
+        yearBadge.style.display = 'none';
+    }
+
+    // Show container
+    container.classList.add('active');
+
+    // Generate initial HTML (top 10)
+    const initialCount = Math.min(10, rankings.length);
+    listEl.innerHTML = generateRankingHTML(rankings, 0, initialCount);
+
+    // Update more button
+    const remaining = rankings.length - initialCount;
+    if (remaining > 0) {
+        moreBtn.style.display = 'flex';
+        remainingEl.textContent = `(${remaining} tersisa)`;
+    } else {
+        moreBtn.style.display = 'none';
+    }
+}
+
+/**
+ * Update ranking for new year (used by year slider)
+ */
+function updateRankingPanel(folder, choroplethData, year = 'all') {
+    // Only update if ranking panel is for this folder
+    if (rankingState.folder !== folder && rankingState.folder !== null) return;
+
+    showRankingPanel(folder, choroplethData, year);
+}
+
+/**
+ * Hide floating ranking panel
+ */
+function hideRankingPanel(folder) {
+    const container = document.getElementById('rankingContainer');
+    if (!container) return;
+
+    // Only hide if this is the active folder
+    if (rankingState.folder === folder) {
+        container.classList.remove('active', 'expanded');
+        rankingState.folder = null;
+        rankingState.rankings = [];
+    }
+}
+
+/**
+ * Load +10 more ranking items
+ */
+function loadMoreRanking() {
+    const listEl = document.getElementById('rankingList');
+    const moreBtn = document.getElementById('rankingMoreBtn');
+    const remainingEl = document.getElementById('rankingRemaining');
+
+    if (!listEl || rankingState.rankings.length === 0) return;
+
+    const startIndex = rankingState.currentCount;
+    const addCount = 10;
+
+    // Append new items
+    const newHTML = generateRankingHTML(rankingState.rankings, startIndex, addCount);
+    listEl.insertAdjacentHTML('beforeend', newHTML);
+
+    // Update state
+    rankingState.currentCount += addCount;
+
+    // Update or hide more button
+    const remaining = rankingState.rankings.length - rankingState.currentCount;
+    if (remaining > 0) {
+        remainingEl.textContent = `(${remaining} tersisa)`;
+    } else {
+        moreBtn.style.display = 'none';
+    }
+}
+
+/**
+ * Toggle Sort Order
+ */
+function toggleSortOrder() {
+    // 1. Toggle state
+    rankingState.sortOrder = rankingState.sortOrder === 'desc' ? 'asc' : 'desc';
+
+    // 2. Refresh Ranking Data
+    // We need to re-generate because the order changed completely
+    if (rankingState.choroplethData) {
+        rankingState.rankings = generateRankingData(rankingState.choroplethData, rankingState.year);
+        rankingState.currentCount = 10; // Reset pagination
+    }
+
+    // 3. Update UI
+    const listEl = document.getElementById('rankingList');
+    const titleEl = document.getElementById('rankingTitle');
+    const sortBtn = document.getElementById('rankingSortBtn');
+    const moreBtn = document.getElementById('rankingMoreBtn');
+    const remainingEl = document.getElementById('rankingRemaining');
+
+    if (listEl) {
+        // Clear list
+        listEl.innerHTML = '';
+
+        // Re-render top 10
+        const initialCount = Math.min(10, rankingState.rankings.length);
+        listEl.innerHTML = generateRankingHTML(rankingState.rankings, 0, initialCount);
+
+        // Update Title
+        if (titleEl) {
+            titleEl.textContent = rankingState.sortOrder === 'desc' ? 'Top Ranking' : 'Bottom Ranking';
+        }
+
+        // Update Sort Button Icon/Class
+        if (sortBtn) {
+            if (rankingState.sortOrder === 'asc') {
+                sortBtn.classList.add('asc');
+            } else {
+                sortBtn.classList.remove('asc');
+            }
+        }
+
+        // Update More Button
+        const remaining = rankingState.rankings.length - initialCount;
+        if (remaining > 0) {
+            moreBtn.style.display = 'flex';
+            remainingEl.textContent = `(${remaining} tersisa)`;
+        } else {
+            moreBtn.style.display = 'none';
+        }
+    }
+}
+
+// Toggle ranking panel expand/collapse
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('rankingContainer');
+    const toggleBtn = document.getElementById('rankingToggleBtn');
+    const moreBtn = document.getElementById('rankingMoreBtn');
+    const sortBtn = document.getElementById('rankingSortBtn');
+
+    if (toggleBtn && container) { // Cek keduanya agar tidak error
+        toggleBtn.addEventListener('click', () => {
+
+            // 1. Toggle class untuk animasi container
+            container.classList.toggle('expanded');
+
+            // 2. (Opsional) Toggle class di tombolnya sendiri agar warna/icon berubah
+            toggleBtn.classList.toggle('active');
+
+            // 3. (Best Practice) Update atribut ARIA untuk aksesibilitas
+            const isExpanded = container.classList.contains('expanded');
+            toggleBtn.setAttribute('aria-expanded', isExpanded);
+        });
+    }
+
+    if (moreBtn) {
+        moreBtn.addEventListener('click', () => {
+            loadMoreRanking();
+        });
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', () => {
+            toggleSortOrder();
+        });
+    }
+
+    // Click on ranking item -> highlight on map
+    document.getElementById('rankingList')?.addEventListener('click', (e) => {
+        const item = e.target.closest('.ranking-item');
+        if (item) {
+            const regionCode = item.dataset.region;
+            console.log(`Clicked ranking: ${regionCode}`);
+            // Could add fly-to or highlight functionality here
+        }
+    });
+});
 
 // ============================
 // Color Scheme Picker Event Handler

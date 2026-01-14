@@ -6,6 +6,7 @@ import subprocess
 import threading
 import uuid
 import zipfile
+import pycountry
 
 import boto3
 import requests
@@ -58,6 +59,17 @@ if R2_ACCOUNT_ID and R2_ACCESS_KEY and R2_SECRET_KEY:
 
 # Task progress tracking
 conversion_tasks = {}
+
+# Generate Country Name Mapping (ISO2 & ISO3 -> Name)
+COUNTRY_MAPPING = {}
+for country in pycountry.countries:
+    if hasattr(country, 'alpha_2'):
+        COUNTRY_MAPPING[country.alpha_2] = country.name
+    if hasattr(country, 'alpha_3'):
+        COUNTRY_MAPPING[country.alpha_3] = country.name
+
+# Manually add Indonesia Provinces if needed, or handle in JS
+# For now just countries as requested
 
 
 # ============================
@@ -1054,7 +1066,7 @@ def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom
 @app.route('/')
 def index():
     layers = get_layers()
-    return render_template('index.html', layers=layers, storage_url=R2_PUBLIC_URL)
+    return render_template('index.html', layers=layers, storage_url=R2_PUBLIC_URL, country_mapping=COUNTRY_MAPPING)
     
     
 

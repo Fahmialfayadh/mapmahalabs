@@ -9,6 +9,19 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
 
@@ -20,29 +33,31 @@
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
 
-<body class="bg-gray-100 overflow-hidden">
+<body class="bg-gray-100 dark:bg-gray-950 overflow-hidden text-gray-800 dark:text-gray-100">
 
     <!-- Mobile Menu Button -->
-    <button id="menuBtn" class="fixed top-4 left-4 z-[9999] bg-white p-3 rounded-xl shadow-lg md:hidden
-            hover:bg-gray-50 active:bg-gray-100 transition-colors" aria-label="Toggle menu">
-        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <button id="menuBtn"
+        class="fixed top-4 left-4 z-[9999] bg-white dark:bg-slate-800 p-3 rounded-xl shadow-lg md:hidden
+            hover:bg-gray-50 dark:hover:bg-slate-700 active:bg-gray-100 transition-colors flex items-center justify-center cursor-pointer"
+        aria-label="Toggle menu">
+        <svg class="w-6 h-6 text-gray-700 dark:text-gray-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
         </svg>
     </button>
 
     <!-- Mobile Overlay -->
     <div id="sidebarOverlay"
-        class="sidebar-overlay fixed inset-0 bg-black/40 z-30 hidden md:hidden opacity-0 pointer-events-none">
+        class="sidebar-overlay fixed inset-0 bg-black/40 z-[1050] hidden md:hidden opacity-0 pointer-events-none">
     </div>
 
     <!-- Sidebar -->
     <aside id="sidebar"
-        class="glass-sidebar fixed top-0 left-0 z-40 w-80 h-screen transition-transform -translate-x-full md:translate-x-0 flex flex-col bg-white/90">
+        class="glass-sidebar fixed top-0 left-0 z-[1100] w-96 h-screen transition-transform -translate-x-full md:translate-x-0 flex flex-col bg-white/90 dark:bg-gray-900/90 text-slate-800 dark:text-slate-100 ">
 
         <!-- Sidebar Header: Logo & Title -->
-        <div class="p-6 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+        <div class="p-6 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
             <h1
-                class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-500 tracking-tight flex items-center gap-3">
+                class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-500 dark:from-indigo-400 dark:to-violet-400 tracking-tight flex items-center gap-3">
                 PetaSight
             </h1>
             <p class="text-xs text-gray-400 font-semibold uppercase tracking-widest mt-1 ml-11">Geo Visualization
@@ -52,23 +67,106 @@
 
         <!-- Navigation Tabs -->
         <div
-            class="flex items-center px-4 pt-2 border-b border-gray-100 bg-white/30 backdrop-blur-sm sticky top-0 z-20">
-            <button class="tab-btn w-1/3 py-4 text-sm font-medium text-gray-500 hover:text-indigo-600 active"
+            class="flex items-center px-2 pt-2 border-b border-gray-100 dark:border-gray-800 bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm sticky top-0 z-20 gap-0.5">
+            <button
+                class="tab-btn flex-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 active transition-colors border-b-2 border-transparent"
                 data-tab="map-tab">
                 Layerset
             </button>
-            <button class="tab-btn w-1/3 py-4 text-sm font-medium text-gray-500 hover:text-indigo-600"
-                data-tab="labs-tab">
-                MahaLabs
+            <button
+                class="tab-btn flex-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border-b-2 border-transparent"
+                data-tab="analysis-tab">
+                Data Correlation
             </button>
-            <button class="tab-btn w-1/3 py-4 text-sm font-medium text-gray-500 hover:text-indigo-600"
+            <a href="https://mahalabs.space" target="_blank"
+                class="flex-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border-b-2 border-transparent text-center flex items-center justify-center gap-1 group">
+                Labs
+                <svg class="w-3 h-3 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                </svg>
+            </a>
+            <button
+                class="tab-btn flex-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border-b-2 border-transparent"
                 data-tab="about-tab">
                 About
             </button>
+            <button id="darkModeToggle"
+                class="p-1 px-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-indigo-400 transition-all relative z-50 cursor-pointer"
+                style="pointer-events: auto;" type="button" title="Toggle Dark Mode">
+                <!-- Sun Icon -->
+                <svg class="w-5 h-5 hidden dark:block pointer-events-none" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                    </path>
+                </svg>
+                <!-- Moon Icon -->
+                <svg class="w-5 h-5 block dark:hidden pointer-events-none" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                    </path>
+                </svg>
+            </button>
         </div>
 
+        <script>
+                // Inline fallback for dark mode - runs immediately
+                (function () {
+                    console.log('INLINE DARK MODE SCRIPT RUNNING');
+
+                    // Set initial state
+                    try {
+                        const savedTheme = localStorage.getItem('theme');
+                        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+
+                        if (isDark) {
+                            document.documentElement.classList.add('dark');
+                            console.log('Initial state: DARK');
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                            console.log('Initial state: LIGHT');
+                        }
+                    } catch (e) {
+                        console.error('Error setting initial theme:', e);
+                    }
+
+                    // Attach handler when DOM ready
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const btn = document.getElementById('darkModeToggle');
+                        console.log('Inline script - button found:', !!btn);
+
+                        if (btn) {
+                            btn.addEventListener('click', function (e) {
+                                console.log('=== INLINE HANDLER CLICKED ===');
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                const html = document.documentElement;
+                                if (html.classList.contains('dark')) {
+                                    html.classList.remove('dark');
+                                    localStorage.setItem('theme', 'light');
+                                    console.log('Switched to LIGHT mode');
+                                } else {
+                                    html.classList.add('dark');
+                                    localStorage.setItem('theme', 'dark');
+                                    console.log('Switched to DARK mode');
+                                }
+                            });
+                            console.log('✓ Inline dark mode handler attached');
+                        } else {
+                            console.error('✗ Dark mode button NOT FOUND');
+                        }
+                    });
+                })();
+        </script>
+
         <!-- Scrollable Content Area -->
-        <div class="flex-1 overflow-y-auto sidebar-scroll p-5 bg-black-50/50">
+        <div
+            class="flex-1 overflow-y-auto sidebar-scroll p-5 bg-gray-50/50 dark:bg-slate-950 transition-colors duration-300">
 
             <!-- TAB 1: Map Layers -->
             <div id="map-tab" class="tab-content active space-y-8">
@@ -480,42 +578,237 @@
                 </div>
             </div>
 
-            <!-- TAB 2: MahaLabs (Embedded) -->
-            <div id="labs-tab" class="tab-content hidden h-full">
-                <div class="h-full flex flex-col items-center justify-center text-center p-6 space-y-6">
+            <!-- TAB 2: Analysis (Correlation) -->
+            <div id="analysis-tab" class="tab-content hidden h-full">
+                <div class="space-y-5">
+                    <!-- Correlation Analysis Card -->
                     <div
-                        class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl shadow-xl flex items-center justify-center text-white text-3xl transform rotate-3 hover:rotate-6 transition-transform">
-                        🚀
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800 mb-2">MahaLabs Space</h3>
-                        <p class="text-sm text-gray-500 leading-relaxed max-w-[200px] mx-auto">
-                            Eksperimen data, riset AI, dan inovasi visualisasi terbaru dari tim kami.
+                        class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 dark:border-white/10 p-5 rounded-2xl border border-indigo-100 shadow-sm transition-colors duration-300">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div
+                                class="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-xl shadow-lg flex items-center justify-center text-white">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 dark:text-white">Correlation Analysis</h3>
+                                <p class="text-[10px] text-gray-400 dark:text-gray-400 uppercase tracking-wider">Pearson
+                                    Correlation</p>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
+                            Analyze the statistical correlation between two choropleth map layers.
+                            <span class="text-amber-600 dark:text-amber-400 font-medium">Province data can only be
+                                compared with province
+                                data.</span>
                         </p>
+
+                        <!-- Layer 1 Selector -->
+                        <div class="mb-3">
+                            <label
+                                class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Layer
+                                1</label>
+                            <select id="correlationLayer1"
+                                class="correlation-select w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all">
+                                <option value="">-- Choose Layer --</option>
+                            </select>
+                        </div>
+
+                        <!-- Layer 2 Selector -->
+                        <div class="mb-4">
+                            <label
+                                class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Layer
+                                2</label>
+                            <select id="correlationLayer2"
+                                class="correlation-select w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
+                                disabled>
+                                <option value="">-- Choose Layer 1 first --</option>
+                            </select>
+                        </div>
+
+                        <!-- Type Mismatch Warning -->
+                        <div id="correlationWarning"
+                            class="hidden mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <p class="text-xs text-amber-700 font-medium" id="correlationWarningText">
+                                    Data provinsi tidak dapat dibandingkan dengan data global.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Analyze Button -->
+                        <button id="correlationAnalyzeBtn"
+                            class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none flex items-center justify-center gap-2"
+                            disabled>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <span id="correlationBtnText">Analisis Korelasi</span>
+                        </button>
+
+                        <!-- Loading State -->
+                        <div id="correlationLoading" class="hidden mt-4 text-center">
+                            <div class="inline-flex items-center gap-2 text-indigo-600">
+                                <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                <span class="text-sm font-medium">Menghitung korelasi...</span>
+                            </div>
+                        </div>
                     </div>
-                    <a href="https://mahalabs.space" target="_blank"
-                        class="inline-flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all transform hover:-translate-y-1">
-                        Kunjungi Mahalabs
-                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                        </svg>
-                    </a>
+
+                    <!-- Results Panel -->
+                    <div id="correlationResults" class="hidden">
+                        <div
+                            class="bg-white dark:bg-slate-800 dark:border-white/10 p-5 rounded-2xl border border-gray-100 shadow-lg transition-colors duration-300">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-bold text-gray-800 dark:text-white text-sm">Hasil Analisis</h4>
+                                <span id="correlationScoreBadge"
+                                    class="correlation-score-badge px-3 py-1 rounded-full text-xs font-bold">
+                                    r = 0.00
+                                </span>
+                            </div>
+
+                            <!-- Strength Indicator -->
+                            <div class="flex items-center gap-2 mb-4">
+                                <div>
+                                    <span id="correlationStrengthBadge"
+                                        class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                        Moderat
+                                    </span>
+                                    <span id="correlationDirectionBadge"
+                                        class="inline-block ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                        Positif
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Insight Text -->
+                            <div
+                                class="p-4 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-700/50 dark:to-slate-700/30 rounded-xl border border-gray-100 dark:border-white/5 mb-4">
+                                <p id="correlationInsightText"
+                                    class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                    <!-- Insight text will be injected here -->
+                                </p>
+                            </div>
+
+                            <!-- Statistics -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="text-center p-3 bg-indigo-50 rounded-xl">
+                                    <div id="correlationMatchedRegions" class="text-lg font-bold text-indigo-600">0
+                                    </div>
+                                    <div class="text-[10px] text-gray-500 uppercase tracking-wider">Region Matched</div>
+                                </div>
+                                <div class="text-center p-3 bg-purple-50 rounded-xl">
+                                    <div id="correlationYear" class="text-lg font-bold text-purple-600">2024</div>
+                                    <div class="text-[10px] text-gray-500 uppercase tracking-wider">Year</div>
+                                </div>
+                            </div>
+
+                            <!-- Scatter Plot Container -->
+                            <div id="correlationChart" class="mt-4 w-full h-[300px] rounded-xl overflow-hidden hidden">
+                                <!-- Chart will be rendered here -->
+                            </div>
+
+                            <!-- Zoom Controls -->
+                            <div id="chartZoomControls" class="mt-3 grid grid-cols-2 gap-2 hidden">
+                                <button id="zoomOutBtn"
+                                    class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-xs font-medium flex items-center justify-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M20 12H4"></path>
+                                    </svg>
+                                    Zoom Out
+                                </button>
+                                <button id="zoomInBtn"
+                                    class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-xs font-medium flex items-center justify-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    Zoom In
+                                </button>
+                                <button id="resetZoomBtn"
+                                    class="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all text-xs font-medium flex items-center justify-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                        </path>
+                                    </svg>
+                                    Reset
+                                </button>
+                                <button id="viewFullscreenBtn" type="button" onclick="openFullscreenChart()"
+                                    class="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer"
+                                    title="Open chart in full page">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                                        </path>
+                                    </svg>
+                                    Full Page
+                                </button>
+                            </div>
+
+                            <div id="regressionEquation"
+                                class="mt-2 text-center text-xs font-mono text-gray-500 dark:text-gray-400 hidden">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Card -->
+                    <div
+                        class="p-4 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-800 dark:to-slate-800 rounded-xl border border-gray-100 dark:border-white/10 transition-colors duration-300">
+                        <h4
+                            class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+
+                            Correlation Interpretation </h4>
+                        <div class="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                                <span><strong>0.7 - 1.0:</strong> Strong Correlation</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                                <span><strong>0.5 - 0.7:</strong> Moderate Correlation</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                                <span><strong>0.3 - 0.5:</strong> Moderate Correlation</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+                                <span><strong>&lt; 0.3:</strong> No Correlation</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- TAB 3: About -->
             <div id="about-tab" class="tab-content hidden p-2">
                 <div
-                    class="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-2xl border border-indigo-100 shadow-sm space-y-6">
+                    class="bg-gradient-to-br from-indigo-50 to-white dark:from-slate-800 dark:to-slate-900 p-6 rounded-2xl border border-indigo-100 dark:border-white/10 shadow-sm space-y-6 transition-colors duration-300">
                     <div>
-                        <h3 class="font-bold text-lg text-indigo-900 mb-1">PetaSight</h3>
+                        <h3 class="font-bold text-lg text-indigo-900 dark:text-indigo-400 mb-1">PetaSight</h3>
                         <p class="text-indigo-400 text-xs font-mono uppercase tracking-widest">Mahalabs</p>
                     </div>
 
                     <p class="text-sm text-gray-600 leading-relaxed">
-                        Platform visualisasi geospasial yang dirancang untuk menganalisis data multi-dimensional dengan
-                        antarmuka yang intuitif dan modern.
+                        A geospatial visualization platform designed for analyzing multi-dimensional data with an
+                        intuitive and modern interface.
                     </p>
 
                     <div class="space-y-3">
@@ -523,14 +816,15 @@
                             <span class="text-lg">🌡️</span>
                             <div class="text-xs">
                                 <strong class="block text-gray-800">Dynamic Heatmap</strong>
-                                <span class="text-gray-500">Analisis sebaran data numerik</span>
+                                <span class="text-gray-500">Dynamic heatmap visualization for analyzing the distribution
+                                    of numeric data.</span>
                             </div>
                         </div>
                         <div class="flex items-center gap-3 p-3 bg-white rounded-xl shadow-sm border border-gray-100">
                             <span class="text-lg">⚡</span>
                             <div class="text-xs">
                                 <strong class="block text-gray-800">Real-time Rendering</strong>
-                                <span class="text-gray-500">Dukungan dataset masif (GeoTIFF)</span>
+                                <span class="text-gray-500">Support for large datasets (GeoTIFF)</span>
                             </div>
                         </div>
                     </div>
@@ -552,6 +846,7 @@
 
     <!-- Floating Ranking Panel (on map) -->
     <div id="rankingContainer" class="ranking-container">
+
         <!-- Toggle Button -->
         <button id="rankingToggleBtn" class="ranking-toggle-btn" title="Toggle Ranking" data-default="true"> Ranking
             <svg class="ranking-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -646,8 +941,8 @@
         window.COUNTRY_MAPPING = {{ country_mapping | tojson | safe }};
     </script>
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/config.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
 </body>
 
 </html>

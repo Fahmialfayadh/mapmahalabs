@@ -582,7 +582,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .ranking-container {
     position: fixed;
     top: 100px;
-    left: 340px;
+    left: 410px;
     z-index: 900;
     display: none;
     flex-direction: column;
@@ -862,9 +862,214 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
+
+    /* Ranking: Top Left below Hamburger */
     .ranking-container {
         left: 16px;
         top: 70px;
-        max-width: calc(100vw - 32px);
+        max-width: 200px;
+        /* Limit width */
     }
+
+    /* Legend: Top Right */
+    .legend-container {
+        bottom: auto;
+        top: 70px;
+        right: 16px;
+        max-width: 160px;
+        padding: 10px;
+        font-size: 0.8em;
+        /* Slightly smaller text */
+    }
+
+    /* Legend Adjustments */
+    .legend-gradient {
+        width: 100%;
+        /* Auto width */
+        height: 8px;
+    }
+
+    /* Slider: Bottom Center, Full Width */
+    .year-slider-container {
+        bottom: 20px;
+        width: 92%;
+        min-width: auto;
+        padding: 12px 16px;
+        border-radius: 16px;
+    }
+
+    .year-display {
+        font-size: 1.5rem;
+        /* Smaller year text */
+    }
+
+    /* Hide some legend labels if too cramped */
+    #legendQ1,
+    #legendQ3 {
+        display: none;
+    }
+}
+
+/* ===========================================
+   Correlation Analysis Styles
+   =========================================== */
+
+.correlation-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+.correlation-select:disabled {
+    background-color: #f9fafb;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.correlation-score-badge {
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+    color: #3730a3;
+    transition: all 0.3s ease;
+}
+
+.correlation-score-badge.positive-strong {
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    color: #166534;
+}
+
+.correlation-score-badge.positive-moderate {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    color: #1e40af;
+}
+
+.correlation-score-badge.negative-strong {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #991b1b;
+}
+
+.correlation-score-badge.negative-moderate {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+}
+
+.correlation-score-badge.weak {
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    color: #4b5563;
+}
+
+/* Strength Badge Colors */
+.strength-sangat-kuat {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+}
+
+.strength-cukup-kuat {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.strength-moderat {
+    background: linear-gradient(135deg, #eab308, #ca8a04);
+    color: white;
+}
+
+.strength-lemah {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    color: white;
+}
+
+/* Direction Badge Colors */
+.direction-positif {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.direction-negatif {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+/* ===========================================
+   Dark Mode Overrides
+   =========================================== */
+
+.dark .bg-black-50\/50 {
+    background-color: #020617;
+}
+
+.dark .layer-card {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-color: #334155;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+.dark .layer-card:hover {
+    border-color: #6366f1;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+}
+
+.dark .layer-card.expanded {
+    background: linear-gradient(135deg, #1e1b4b, #312e81);
+    border-color: #6366f1;
+}
+
+.dark .layer-card h3 {
+    color: #f1f5f9;
+}
+
+.dark .layer-card p {
+    color: #94a3b8;
+}
+
+.dark .layer-details {
+    border-top-color: #334155;
+}
+
+.dark .glass-sidebar {
+    background: rgba(15, 23, 42, 0.9);
+    border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .aurora-header {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(15, 23, 42, 0.5) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .correlation-select {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+.dark .correlation-select:focus {
+    border-color: #6366f1;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+}
+
+/* Ranking Panel Dark */
+.dark .ranking-container {
+    color: #f1f5f9;
+}
+
+.dark .ranking-content,
+.dark .ranking-toggle-btn {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.dark .ranking-item {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+.dark .ranking-item:hover {
+    background: rgba(99, 102, 241, 0.15);
+}
+
+.dark .ranking-title {
+    color: #e2e8f0;
 }

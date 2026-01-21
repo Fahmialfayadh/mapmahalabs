@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correlation Analysis - Fullscreen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Force dark mode if query param present or system pref */
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        /* Mobile optimizations - BALANCED & READABLE */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem !important;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            /* Restore Plotly Toolbar visibility */
+            .modebar {
+                display: flex !important;
+            }
+
+            .header-title {
+                font-size: 1.25rem !important;
+                margin-bottom: 0.25rem !important;
+                white-space: normal !important;
+                /* Allow wrapping */
+                overflow: visible !important;
+                line-height: 1.2 !important;
+            }
+
+            .header-subtitle {
+                font-size: 0.85rem !important;
+                margin-top: 0 !important;
+                white-space: normal !important;
+                /* Allow wrapping */
+                overflow: visible !important;
+                line-height: 1.3 !important;
+            }
+
+
+
+            #equation {
+                font-size: 0.6rem !important;
+                margin-top: 0 !important;
+            }
+
+            .action-btn {
+                padding: 0.3rem 0.5rem !important;
+                font-size: 0.65rem !important;
+                border-radius: 0.3rem !important;
+                line-height: 1 !important;
+            }
+
+            .action-btn svg {
+                width: 0.75rem !important;
+                height: 0.75rem !important;
+            }
+
+            .chart-container {
+                flex: 1;
+                min-height: 50vh;
+                max-height: none !important;
+                margin-bottom: 1rem !important;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                margin-top: 0 !important;
+                gap: 0.75rem !important;
+                display: grid !important;
+                padding-bottom: 0.5rem;
+            }
+
+            .stats-grid>div {
+                padding: 0.75rem !important;
+            }
+
+            .stat-label {
+                font-size: 0.7rem !important;
+                margin-bottom: 0.25rem !important;
+            }
+
+            .stat-value {
+                font-size: 1.1rem !important;
+                line-height: normal !important;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .fade-out {
+            animation: fadeOut 1s ease-in 3s forwards;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-gray-100 h-screen flex flex-col p-6">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-4">
+        <div>
+            <h1
+                class="header-title text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                Correlation Analysis
+            </h1>
+            <p id="subtitle" class="header-subtitle text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
+                Loading data...
+            </p>
+            <p id="equation" class="text-xs text-black dark:text-black font-mono mt-1 hidden">
+
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="window.print()"
+                class="action-btn px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z">
+                    </path>
+                </svg>
+                Print/PDF
+            </button>
+            <button onclick="window.close()"
+                class="action-btn px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/30 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Chart Container -->
+    <div
+        class="chart-container flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-xl overflow-hidden relative">
+        <div id="chart" class="w-full h-full"></div>
+
+        <!-- Instructions overlay -->
+        <div id="instructions"
+            class="fade-out absolute top-4 left-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-xs text-gray-600 dark:text-gray-300 max-w-xs shadow-sm">
+            <strong>💡 Tip:</strong> Drag to pan • Scroll to zoom • Double-click to reset
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading"
+            class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 dark:bg-slate-900/90 z-50 backdrop-blur-sm">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400 mb-4">
+            </div>
+            <p class="text-indigo-600 dark:text-indigo-400 font-medium animate-pulse">Analyzing Data...</p>
+        </div>
+
+        <!-- Error Overlay -->
+        <div id="error"
+            class="absolute inset-0 flex flex-col items-center justify-center bg-white/95 dark:bg-slate-900/95 z-50 hidden">
+            <div
+                class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 text-red-500">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                    </path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-2">Error Loading Chart</h3>
+            <p id="errorText" class="text-gray-500 dark:text-gray-400 text-center max-w-md"></p>
+            <button onclick="location.reload()"
+                class="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">Try
+                Again</button>
+        </div>
+    </div>
+
+    <!-- Stats Footer -->
+    <div class="stats-grid mt-4 grid grid-cols-4 gap-3">
+        <div
+            class="bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm text-center">
+            <div class="stat-label text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Correlation
+            </div>
+            <div id="statR" class="stat-value text-2xl font-bold text-gray-800 dark:text-white">-</div>
+        </div>
+        <div
+            class="bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm text-center">
+            <div class="stat-label text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Type</div>
+            <div id="statStrength" class="stat-value text-lg font-bold text-gray-800 dark:text-white">-</div>
+        </div>
+        <div
+            class="bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm text-center">
+            <div class="stat-label text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Data</div>
+            <div id="statRegions" class="stat-value text-lg font-bold text-indigo-600 dark:text-indigo-400">-</div>
+        </div>
+        <div
+            class="bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm text-center">
+            <div class="stat-label text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Year</div>
+            <div id="statYear" class="stat-value text-lg font-bold text-purple-600 dark:text-purple-400">-</div>
+        </div>
+    </div>
+
+    <script>
+        // Check for Dark Mode Preference
+        if (localStorage.getItem('theme') === 'dark' ||
+            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+
+        async function init() {
+            const params = new URLSearchParams(window.location.search);
+            const layer1 = params.get('layer1');
+            const layer2 = params.get('layer2');
+            const year = params.get('year') || '2024';
+
+            if (!layer1 || !layer2) {
+                showError('Missing layer parameters.');
+                return;
+            }
+
+            try {
+                // Fetch data
+                console.log('Fetching correlation data...');
+                const response = await fetch(`/api/correlation?layer1=${encodeURIComponent(layer1)}&layer2=${encodeURIComponent(layer2)}&year=${year}`);
+                console.log('Response status:', response.status);
+
+                const data = await response.json();
+                console.log('API Response:', data);
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+
+                renderChart(data);
+                updateStats(data);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('subtitle').textContent = `${data.layer1.name} vs ${data.layer2.name} (${data.year})`;
+                document.title = `${data.layer1.name} vs ${data.layer2.name} - PetaSight`;
+
+                // Display regression equation
+                if (data.regression_equation) {
+                    const eqElement = document.getElementById('equation');
+                    eqElement.textContent = `📐 ${data.regression_equation}`;
+                    eqElement.classList.remove('hidden');
+                }
+
+            } catch (err) {
+                console.error('Init error:', err);
+                showError(err.message);
+            }
+        }
+
+        function renderChart(data) {
+            console.log('Rendering chart with data:', data);
+            const plotData = data.plotly_data;
+
+            if (!plotData) {
+                showError('No chart data received.');
+                return;
+            }
+
+            if (!plotData.x || !plotData.y || plotData.x.length === 0) {
+                showError('Invalid chart data: missing x/y coordinates.');
+                return;
+            }
+
+            const scatter = {
+                x: plotData.x,
+                y: plotData.y,
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Data',
+                marker: {
+                    size: 12,
+                    color: '#6366f1',
+                    line: { color: 'white', width: 2 },
+                    opacity: 0.8
+                },
+                hovertemplate:
+                    '<b>%{text}</b><br>' +
+                    '%{xaxis.title.text}: %{x}<br>' +
+                    '%{yaxis.title.text}: %{y}<extra></extra>',
+                text: data.region_names
+            };
+
+            const trendX = plotData.x;
+            const trendY = trendX.map(x => plotData.slope * x + plotData.intercept);
+            const trendline = {
+                x: trendX,
+                y: trendY,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'Trend',
+                line: { color: '#ef4444', width: 3, dash: 'solid' }
+            };
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#f1f5f9' : '#1e293b';
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+            const layout = {
+                xaxis: {
+                    title: { text: plotData.layer1_name, font: { size: 14 } },
+                    gridcolor: gridColor,
+                    zerolinecolor: gridColor,
+                    tickfont: { color: textColor },
+                    titlefont: { color: textColor }
+                },
+                yaxis: {
+                    title: { text: plotData.layer2_name, font: { size: 14 } },
+                    gridcolor: gridColor,
+                    zerolinecolor: gridColor,
+                    tickfont: { color: textColor },
+                    titlefont: { color: textColor }
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: 'Plus Jakarta Sans', color: textColor },
+                showlegend: true,
+                legend: { x: 0, y: 1 },
+                hovermode: 'closest',
+                dragmode: 'zoom'
+            };
+
+            const isMobile = window.innerWidth < 768;
+
+            const config = {
+                responsive: true,
+                displayModeBar: !isMobile, // Hide on mobile
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                toImageButtonOptions: {
+                    format: 'png',
+                    filename: 'mahalabs_chart',
+                    height: 800,
+                    width: 1200,
+                    scale: 2
+                }
+            };
+
+            Plotly.newPlot('chart', [scatter, trendline], layout, config);
+        }
+
+        function updateStats(data) {
+            console.log('Updating stats with data:', data);
+
+            // Use CORRECT fields from API: score (not correlation), text (not strength)
+            const scoreValue = data.score !== undefined ? data.score : null;
+            const correlation = scoreValue !== null ? scoreValue.toFixed(3) : 'N/A';
+
+            // Map score to strength category (short version for mobile)
+            let strength = 'N/A';
+            if (scoreValue !== null) {
+                const absScore = Math.abs(scoreValue);
+                if (absScore >= 0.7) strength = 'Strong';
+                else if (absScore >= 0.4) strength = 'Moderate';
+                else strength = 'Weak';
+
+                // Add direction
+                if (scoreValue > 0) strength += ' +';
+                else if (scoreValue < 0) strength += ' -';
+            }
+
+            const regions = data.matched_regions || 0;
+            const year = data.year || '2024';
+
+            document.getElementById('statR').textContent = correlation;
+            document.getElementById('statStrength').textContent = strength;
+            document.getElementById('statRegions').textContent = regions;
+            document.getElementById('statYear').textContent = year;
+        }
+
+        function showError(msg) {
+            console.error('Error:', msg);
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('errorText').textContent = msg;
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

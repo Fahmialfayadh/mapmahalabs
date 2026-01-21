@@ -11,7 +11,22 @@ const map = L.map('map', {
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 // ============================
+// Global UI Elements & State
+// ============================
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const menuBtn = document.getElementById('menuBtn');
+
+const correlationState = {
+    layers: [],           // All available choropleth layers
+    layerMetadata: {},    // Cached metadata (folder -> {type, name})
+    layer1: null,
+    layer2: null
+};
+
+// ============================
 // Weather Layer Variables (declared early for inline handlers)
+
 // ============================
 var weatherLayers = {};
 var weatherMarkerLayers = {};
@@ -213,6 +228,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     c.classList.remove('hidden');
                     // Small delay to allow display:block to apply before opacity transition
                     setTimeout(() => c.classList.add('active'), 10);
+
+                    // Re-initialize features based on tab
+                    if (targetId === 'analysis-tab') {
+                        console.log('Switching to Analysis tab, reinforcing correlation init...');
+                        initCorrelationFeature();
+                    }
                 }
             });
         });
@@ -1887,3 +1908,569 @@ document.querySelectorAll('.weather-hour-slider').forEach(slider => {
         }, 400);
     });
 });
+
+// ============================
+// Correlation Analysis Feature
+// ============================
+
+
+
+/**
+ * Initialize correlation feature on page load
+ */
+async function initCorrelationFeature() {
+    console.log('initCorrelationFeature: Starting...');
+    try {
+        // Fetch all layers from API
+        const response = await fetch('/api/layers');
+        if (!response.ok) {
+            console.error('initCorrelationFeature: API response not OK');
+            return;
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            console.error('initCorrelationFeature: API returned success=false');
+            return;
+        }
+
+        // Filter only choropleth layers
+        correlationState.layers = data.layers.filter(l => l.layer_type === 'choropleth');
+        console.log(`initCorrelationFeature: Found ${correlationState.layers.length} choropleth layers. Prefetching metadata...`);
+
+        // Populate Layer 1 dropdown
+        const select1 = document.getElementById('correlationLayer1');
+        const select2 = document.getElementById('correlationLayer2');
+        const analyzeBtn = document.getElementById('correlationAnalyzeBtn');
+
+        if (select1) {
+            // Preservation logic: Check if browser restored a value
+            const preservedValue = select1.value;
+            console.log('initCorrelationFeature: Preserved value detected:', preservedValue);
+
+            select1.innerHTML = '<option value="">-- Pilih Layer --</option>';
+            correlationState.layers.forEach(layer => {
+                const option = document.createElement('option');
+                option.value = layer.folder_path;
+                option.textContent = layer.name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+                // Re-select if matches preserved value
+                if (preservedValue && layer.folder_path === preservedValue) {
+                    option.selected = true;
+                }
+                select1.appendChild(option);
+            });
+
+            // ROBUST LISTENER ATTACHMENT (overrides any previous listeners)
+            select1.onchange = async () => {
+                console.log('Listener: Layer 1 changed to', select1.value);
+                await updateCorrelationLayer2();
+            };
+
+            // Trigger update immediately if we restored a value
+            if (select1.value) {
+                console.log('initCorrelationFeature: Auto-triggering update for restored value...');
+                // Use setTimeout to ensure DOM is ready
+                setTimeout(() => updateCorrelationLayer2(), 50);
+            }
+        }
+
+        // Attach other listeners robustly
+        if (select2) select2.onchange = validateCorrelationSelection;
+        if (analyzeBtn) analyzeBtn.onclick = runCorrelationAnalysis;
+
+        // PREFETCH METADATA IN PARALLEL
+        const promises = correlationState.layers.map(layer => getLayerType(layer.folder_path));
+        await Promise.all(promises);
+
+        console.log('initCorrelationFeature: All layer types loaded.');
+
+        // Final consistency check
+        if (select1 && select1.value) {
+            updateCorrelationLayer2();
+        }
+
+    } catch (err) {
+        console.error('Failed to init correlation:', err);
+    }
+}
+
+/**
+ * Get layer type (province or global) by checking choropleth metadata
+ */
+async function getLayerType(folder) {
+    // Check cache first
+    if (correlationState.layerMetadata[folder]) {
+        return correlationState.layerMetadata[folder].type;
+    }
+
+    try {
+        const response = await fetch(`/api/choropleth-data/${folder}`);
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        const isProvince = data.geojson_file === 'indonesia-provinces.geojson';
+
+        // Cache result
+        correlationState.layerMetadata[folder] = {
+            type: isProvince ? 'province' : 'global',
+            name: data.value_column || folder
+        };
+
+        return correlationState.layerMetadata[folder].type;
+    } catch (err) {
+        console.error('Failed to get layer type:', err);
+        return null;
+    }
+}
+
+async function updateCorrelationLayer2() {
+    console.log('DEBUG: updateCorrelationLayer2 triggered (Strict Sync Mode)');
+    const select1 = document.getElementById('correlationLayer1');
+    const select2 = document.getElementById('correlationLayer2');
+    const analyzeBtn = document.getElementById('correlationAnalyzeBtn');
+    const warning = document.getElementById('correlationWarning');
+    const warningText = document.getElementById('correlationWarningText');
+
+    const folder1 = select1.value;
+    correlationState.layer1 = folder1;
+    correlationState.layer2 = null;
+
+    // Reset states
+    warning.classList.add('hidden');
+    analyzeBtn.disabled = true;
+
+    if (!folder1) {
+        select2.innerHTML = '<option value="">-- Pilih Layer 1 terlebih dahulu --</option>';
+        select2.disabled = true;
+        return;
+    }
+
+    // 1. Resolve Layer 1 Type (Prioritize Cache)
+    let type1 = 'global';
+    if (correlationState.layerMetadata[folder1]) {
+        type1 = correlationState.layerMetadata[folder1].type;
+        console.log(`DEBUG: Layer 1 type (cache): ${type1}`);
+    } else {
+        // Fallback fetch if missing (should not happen if init completed)
+        console.log('DEBUG: Layer 1 cache miss, fetching...');
+        try {
+            const t1 = await getLayerType(folder1);
+            if (t1) type1 = t1;
+        } catch (e) { console.error(e); }
+    }
+
+    // 2. Populate Layer 2 (Synchronous Loop)
+    select2.disabled = false;
+    select2.innerHTML = '<option value="">-- Pilih Layer --</option>';
+
+    let compatibleCount = 0;
+    const optionsFragment = document.createDocumentFragment();
+
+    // Iterate all layers to populate options
+    for (const layer of correlationState.layers) {
+        if (layer.folder_path === folder1) continue; // Skip self
+
+        const option = document.createElement('option');
+        option.value = layer.folder_path;
+        option.textContent = layer.name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+        // Resolve Layer 2 Type (Cache preferred)
+        let type2 = 'global'; // Assume global if unknown to allow render
+        if (correlationState.layerMetadata[layer.folder_path]) {
+            type2 = correlationState.layerMetadata[layer.folder_path].type;
+        } else {
+            // If metadata is completely missing, we have to assume compatibility or fetch?
+            // Since init prefetches all, strict filtering based on cache is safer UX than waiting.
+            // If miss, we treat as 'global' (default)
+        }
+
+        // STRICT FILTER LOGIC:
+        if (type1 !== type2) {
+            option.disabled = true; // Disable incompatible
+            option.textContent += ` (${type2 === 'province' ? 'Provinsi' : 'Global'}) - Beda Tipe`;
+            option.style.color = '#ccc';
+        } else {
+            compatibleCount++; // Only count actual compatible ones
+        }
+
+        optionsFragment.appendChild(option);
+    }
+
+    select2.appendChild(optionsFragment);
+    console.log(`DEBUG: Logged ${compatibleCount} compatible layers.`);
+
+    if (compatibleCount === 0) {
+        warning.classList.remove('hidden');
+        if (warningText) warningText.textContent = `Tidak ada layer ${type1 === 'province' ? 'provinsi' : 'global'} lain yang tersedia.`;
+    }
+}
+
+/**
+ * Validate and enable/disable analyze button
+ */
+function validateCorrelationSelection() {
+    const select1 = document.getElementById('correlationLayer1');
+    const select2 = document.getElementById('correlationLayer2');
+    const analyzeBtn = document.getElementById('correlationAnalyzeBtn');
+
+    correlationState.layer2 = select2.value;
+
+    const isValid = select1.value && select2.value && select1.value !== select2.value;
+    analyzeBtn.disabled = !isValid;
+}
+
+/**
+ * Run correlation analysis
+ */
+async function runCorrelationAnalysis() {
+    const layer1 = correlationState.layer1;
+    const layer2 = correlationState.layer2;
+
+    if (!layer1 || !layer2) return;
+
+    // Show loading state
+    const loadingEl = document.getElementById('correlationLoading');
+    const resultsEl = document.getElementById('correlationResults');
+    const analyzeBtn = document.getElementById('correlationAnalyzeBtn');
+    const btnText = document.getElementById('correlationBtnText');
+
+    loadingEl.classList.remove('hidden');
+    resultsEl.classList.add('hidden');
+    analyzeBtn.disabled = true;
+    btnText.textContent = 'Menganalisis...';
+
+    try {
+        // Get current year from slider if active
+        const yearSlider = document.getElementById('yearSlider');
+        const yearDisplay = document.getElementById('yearDisplay');
+        const year = yearDisplay?.textContent || 'all';
+
+        const response = await fetch(`/api/correlation?layer1=${layer1}&layer2=${layer2}&year=${year}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Gagal menghitung korelasi');
+        }
+
+        // Display results
+        displayCorrelationResults(data);
+
+    } catch (err) {
+        console.error('Correlation error:', err);
+        alert(`Error: ${err.message}`);
+    } finally {
+        loadingEl.classList.add('hidden');
+        analyzeBtn.disabled = false;
+        btnText.textContent = 'Analisis Korelasi';
+    }
+}
+
+/**
+ * Display correlation results in the UI
+ */
+function displayCorrelationResults(data) {
+    const resultsEl = document.getElementById('correlationResults');
+    const scoreBadge = document.getElementById('correlationScoreBadge');
+    const strengthBadge = document.getElementById('correlationStrengthBadge');
+    const directionBadge = document.getElementById('correlationDirectionBadge');
+    const insightText = document.getElementById('correlationInsightText');
+    const matchedRegions = document.getElementById('correlationMatchedRegions');
+    const yearEl = document.getElementById('correlationYear');
+
+    // Score
+    const score = data.score || 0;
+    scoreBadge.textContent = `r = ${score.toFixed(2)}`;
+
+    // Remove old classes
+    scoreBadge.className = 'correlation-score-badge px-3 py-1 rounded-full text-xs font-bold';
+
+    // Add color class based on score
+    const absScore = Math.abs(score);
+    if (absScore > 0.7) {
+        scoreBadge.classList.add(score > 0 ? 'positive-strong' : 'negative-strong');
+    } else if (absScore > 0.3) {
+        scoreBadge.classList.add(score > 0 ? 'positive-moderate' : 'negative-moderate');
+    } else {
+        scoreBadge.classList.add('weak');
+    }
+
+    // Strength
+    const strength = data.strength || 'lemah';
+    strengthBadge.textContent = strength.charAt(0).toUpperCase() + strength.slice(1);
+    strengthBadge.className = 'inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
+
+    if (strength === 'sangat kuat') {
+        strengthBadge.classList.add('strength-sangat-kuat');
+    } else if (strength === 'cukup kuat') {
+        strengthBadge.classList.add('strength-cukup-kuat');
+    } else if (strength === 'moderat') {
+        strengthBadge.classList.add('strength-moderat');
+    } else {
+        strengthBadge.classList.add('strength-lemah');
+    }
+
+    // Direction
+    const direction = data.direction || 'positif';
+    directionBadge.textContent = direction.charAt(0).toUpperCase() + direction.slice(1);
+    directionBadge.className = 'inline-block ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
+    directionBadge.classList.add(direction === 'positif' ? 'direction-positif' : 'direction-negatif');
+
+    // Insight text (parse markdown bold)
+    const text = data.text || 'Tidak ada insight tersedia.';
+    insightText.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // Statistics
+    matchedRegions.textContent = data.matched_regions || 0;
+    yearEl.textContent = data.year || 'All';
+
+    // Scatter Chart (Plotly) - Direct rendering
+    const chartContainer = document.getElementById('correlationChart');
+    const equationEl = document.getElementById('regressionEquation');
+
+    if (data.plotly_data && chartContainer) {
+        try {
+            const plotData = data.plotly_data;
+
+            // Create scatter trace
+            const scatter = {
+                x: plotData.x,
+                y: plotData.y,
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Data',
+                marker: {
+                    size: 10,
+                    color: '#6366f1',
+                    line: { color: 'white', width: 1 }
+                }
+            };
+
+            // Create trendline trace
+            const trendX = plotData.x;
+            const trendY = trendX.map(x => plotData.slope * x + plotData.intercept);
+            const trendline = {
+                x: trendX,
+                y: trendY,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'Trend',
+                line: { color: '#ef4444', width: 2 }
+            };
+
+            const layout = {
+                title: {
+                    text: `${plotData.layer1_name} vs ${plotData.layer2_name}`,
+                    font: { size: 12, family: 'Inter, sans-serif', color: '#334155' }
+                },
+                xaxis: {
+                    title: plotData.layer1_name,
+                    showgrid: true,
+                    gridcolor: '#e2e8f0',
+                    titlefont: { size: 10 },
+                    tickfont: { size: 9 }
+                },
+                yaxis: {
+                    title: plotData.layer2_name,
+                    showgrid: true,
+                    gridcolor: '#e2e8f0',
+                    titlefont: { size: 10 },
+                    tickfont: { size: 9 }
+                },
+                margin: { l: 40, r: 20, t: 40, b: 40 },
+                height: 300,
+                paper_bgcolor: 'rgba(255,255,255,0.5)',
+                plot_bgcolor: 'rgba(255,255,255,0.5)',
+                font: { family: 'Inter, sans-serif', color: '#334155' },
+                showlegend: false,
+                dragmode: 'pan' // Default pan mode
+            };
+
+            const config = {
+                scrollZoom: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false,
+                responsive: true
+            };
+
+            Plotly.newPlot(chartContainer, [scatter, trendline], layout, config);
+            chartContainer.classList.remove('hidden');
+
+            // Show zoom controls
+            const zoomControls = document.getElementById('chartZoomControls');
+            if (zoomControls) {
+                zoomControls.classList.remove('hidden');
+
+                // Zoom In button
+                document.getElementById('zoomInBtn').onclick = () => {
+                    // Use actual rendered range from _fullLayout to preserve position
+                    const xRange = chartContainer._fullLayout.xaxis.range;
+                    const yRange = chartContainer._fullLayout.yaxis.range;
+
+                    const xCenter = (xRange[0] + xRange[1]) / 2;
+                    const yCenter = (yRange[0] + yRange[1]) / 2;
+                    const xSpan = (xRange[1] - xRange[0]) * 0.4;
+                    const ySpan = (yRange[1] - yRange[0]) * 0.4;
+
+                    Plotly.relayout(chartContainer, {
+                        'xaxis.range': [xCenter - xSpan, xCenter + xSpan],
+                        'yaxis.range': [yCenter - ySpan, yCenter + ySpan]
+                    });
+                };
+
+                // Zoom Out button
+                document.getElementById('zoomOutBtn').onclick = () => {
+                    // Use actual rendered range from _fullLayout to preserve position
+                    const xRange = chartContainer._fullLayout.xaxis.range;
+                    const yRange = chartContainer._fullLayout.yaxis.range;
+
+                    const xCenter = (xRange[0] + xRange[1]) / 2;
+                    const yCenter = (yRange[0] + yRange[1]) / 2;
+                    const xSpan = (xRange[1] - xRange[0]) * 1.25;
+                    const ySpan = (yRange[1] - yRange[0]) * 1.25;
+
+                    Plotly.relayout(chartContainer, {
+                        'xaxis.range': [xCenter - xSpan, xCenter + xSpan],
+                        'yaxis.range': [yCenter - ySpan, yCenter + ySpan]
+                    });
+                };
+
+                // Reset Zoom button
+                document.getElementById('resetZoomBtn').onclick = () => {
+                    Plotly.relayout(chartContainer, {
+                        'xaxis.autorange': true,
+                        'yaxis.autorange': true
+                    });
+                };
+            }
+
+            if (data.regression_equation && equationEl) {
+                equationEl.textContent = data.regression_equation;
+                equationEl.classList.remove('hidden');
+            }
+        } catch (err) {
+            console.error('Error rendering Plotly chart:', err);
+            chartContainer.classList.add('hidden');
+            if (equationEl) equationEl.classList.add('hidden');
+        }
+    } else if (chartContainer) {
+        chartContainer.classList.add('hidden');
+        if (equationEl) equationEl.classList.add('hidden');
+    }
+
+    // Show results
+    resultsEl.classList.remove('hidden');
+    // Scroll to results
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Event Listeners for Correlation & Dark Mode
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Dark Mode
+    initDarkMode();
+
+    // Initialize Correlation
+    initCorrelationFeature();
+
+    // Layer 1 change
+    const select1 = document.getElementById('correlationLayer1');
+    if (select1) {
+        select1.addEventListener('change', updateCorrelationLayer2);
+    }
+
+    // Layer 2 change
+    const select2 = document.getElementById('correlationLayer2');
+    if (select2) {
+        select2.addEventListener('change', validateCorrelationSelection);
+    }
+
+    // Analyze button
+    const analyzeBtn = document.getElementById('correlationAnalyzeBtn');
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', runCorrelationAnalysis);
+    }
+});
+
+// Dark Mode Logic
+function initDarkMode() {
+    console.log('=== DARK MODE INIT STARTED ===');
+    try {
+        const toggleBtn = document.getElementById('darkModeToggle');
+        const html = document.documentElement;
+
+        // Safely check saved preference
+        let isDark = false;
+        try {
+            const saved = localStorage.getItem('theme');
+            const sys = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            isDark = saved === 'dark' || (!saved && sys);
+        } catch (e) {
+            console.warn('LocalStorage access failed:', e);
+        }
+
+        // Apply initial state
+        if (isDark) html.classList.add('dark');
+        else html.classList.remove('dark');
+
+        if (toggleBtn) {
+            // Handler function
+            const toggleDarkMode = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (html.classList.contains('dark')) {
+                    html.classList.remove('dark');
+                    try { localStorage.setItem('theme', 'light'); } catch (e) { }
+                    console.log('Switched to light mode');
+                } else {
+                    html.classList.add('dark');
+                    try { localStorage.setItem('theme', 'dark'); } catch (e) { }
+                    console.log('Switched to dark mode');
+                }
+            };
+
+            // Use both onclick and addEventListener for robustness
+            toggleBtn.onclick = toggleDarkMode;
+            toggleBtn.addEventListener('click', toggleDarkMode);
+            console.log('Dark Mode toggle instantiated.');
+        } else {
+            console.error('Dark Mode toggle button not found in DOM.');
+        }
+    } catch (err) {
+        console.error('Critical error in initDarkMode:', err);
+    }
+}
+
+// Fullscreen Chart Handler - Global Function
+function openFullscreenChart() {
+    console.log('openFullscreenChart called');
+    const layer1 = document.getElementById('correlationLayer1')?.value;
+    const layer2 = document.getElementById('correlationLayer2')?.value;
+    const yearElem = document.getElementById('correlationYear');
+    const year = yearElem ? yearElem.textContent.trim() : '2024';
+
+    console.log('Fullscreen params:', { layer1, layer2, year });
+
+    if (!layer1 || !layer2) {
+        alert('Please perform a correlation analysis first.');
+        return;
+    }
+
+    const url = `/chart-fullscreen?layer1=${encodeURIComponent(layer1)}&layer2=${encodeURIComponent(layer2)}&year=${encodeURIComponent(year)}`;
+    console.log('Opening URL:', url);
+
+    const newWindow = window.open(url, '_blank');
+    if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+        alert('Popup blocked! Please allow popups for this site.');
+    }
+}
+
+function initFullscreenHandler() {
+    const btn = document.getElementById('viewFullscreenBtn');
+    if (btn) {
+        btn.addEventListener('click', openFullscreenChart);
+        console.log('Fullscreen handler initialized');
+    }
+}
+document.addEventListener('DOMContentLoaded', initFullscreenHandler);

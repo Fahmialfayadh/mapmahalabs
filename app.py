@@ -8,6 +8,8 @@ import uuid
 import zipfile
 import pycountry
 
+from correlation import generate_smart_insight, scatter
+
 import boto3
 import requests
 from botocore.config import Config
@@ -1521,5 +1523,139 @@ def api_weather_point():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================
+# Correlation Analysis API
+# ============================
+
+@app.route('/api/correlation')
+def api_correlation():
+    """Calculate Pearson correlation between two choropleth layers."""
+    try:
+        folder1 = request.args.get('layer1')
+        folder2 = request.args.get('layer2')
+        year = request.args.get('year', 'all')
+        
+        if not folder1 or not folder2:
+            return jsonify({'error': 'Both layer1 and layer2 parameters are required'}), 400
+        
+        # Fetch choropleth data for both layers from R2
+        url1 = f"{R2_PUBLIC_URL}/{folder1}/choropleth.json"
+        url2 = f"{R2_PUBLIC_URL}/{folder2}/choropleth.json"
+        
+        resp1 = requests.get(url1, timeout=30)
+        resp2 = requests.get(url2, timeout=30)
+        
+        if resp1.status_code != 200:
+            return jsonify({'error': f'Failed to fetch layer1 data: HTTP {resp1.status_code}'}), 400
+        if resp2.status_code != 200:
+            return jsonify({'error': f'Failed to fetch layer2 data: HTTP {resp2.status_code}'}), 400
+        
+        data1 = resp1.json()
+        data2 = resp2.json()
+        
+        # Determine layer types (province vs global)
+        # Province layers have geojson_file pointing to indonesia-provinces.geojson
+        is_province1 = data1.get('geojson_file') == 'indonesia-provinces.geojson'
+        is_province2 = data2.get('geojson_file') == 'indonesia-provinces.geojson'
+        
+        # Validate same type
+        if is_province1 != is_province2:
+            return jsonify({
+                'error': 'Tidak dapat membandingkan data provinsi Indonesia dengan data global. Pilih dua layer dengan tipe yang sama.',
+                'type_mismatch': True,
+                'layer1_type': 'province' if is_province1 else 'global',
+                'layer2_type': 'province' if is_province2 else 'global'
+            }), 400
+        
+        # Extract common regions and their values
+        regions1 = data1.get('data', {})
+        regions2 = data2.get('data', {})
+        
+        # Find common regions
+        common_regions = set(regions1.keys()) & set(regions2.keys())
+        
+        if len(common_regions) < 3:
+            return jsonify({
+                'error': f'Tidak cukup region yang cocok untuk analisis korelasi. Ditemukan hanya {len(common_regions)} region.',
+                'common_regions': len(common_regions)
+            }), 400
+        
+        # Extract values for the specified year
+        values1 = []
+        values2 = []
+        region_names = []
+        
+        for region in common_regions:
+            region_data1 = regions1.get(region, {})
+            region_data2 = regions2.get(region, {})
+            
+            # Get value for the specified year or first available
+            if year != 'all' and year in region_data1 and year in region_data2:
+                val1 = region_data1[year]
+                val2 = region_data2[year]
+            else:
+                # Get the first available year's data
+                val1 = list(region_data1.values())[0] if region_data1 else None
+                val2 = list(region_data2.values())[0] if region_data2 else None
+            
+            if val1 is not None and val2 is not None:
+                try:
+                    values1.append(float(val1))
+                    values2.append(float(val2))
+                    region_names.append(region)
+                except (ValueError, TypeError):
+                    continue
+        
+        if len(values1) < 3:
+            return jsonify({
+                'error': f'Data nilai tidak cukup untuk tahun yang dipilih. Hanya {len(values1)} region memiliki data valid.',
+                'valid_regions': len(values1)
+            }), 400
+        
+        # Calculate correlation using generate_smart_insight
+        layer1_name = data1.get('value_column', folder1)
+        layer2_name = data2.get('value_column', folder2)
+        
+        result = generate_smart_insight(layer1_name, values1, layer2_name, values2)
+        
+        # Generate Plotly Scatter Chart data
+        try:
+            scatter_result = scatter(values1, values2, layer1_name, layer2_name)
+            result['plotly_data'] = scatter_result.get('chart_data', {})
+            result['regression_equation'] = scatter_result.get('equation', '')
+        except Exception as chart_err:
+            print(f"Error generating chart: {chart_err}")
+            result['plotly_data'] = None
+        
+        # Add additional metadata
+        result['layer1'] = {
+            'folder': folder1,
+            'name': layer1_name,
+            'type': 'province' if is_province1 else 'global'
+        }
+        result['layer2'] = {
+            'folder': folder2,
+            'name': layer2_name,
+            'type': 'province' if is_province2 else 'global'
+        }
+        result['year'] = year
+        result['matched_regions'] = len(values1)
+        result['region_names'] = region_names
+        
+        return jsonify({
+            'success': True,
+            **result
+        })
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/chart-fullscreen')
+def chart_fullscreen():
+    return render_template('chart_fullscreen.html')
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

@@ -1657,5 +1657,12 @@ def chart_fullscreen():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Configuration for server deployment
+    # Use environment variables for flexibility
+    port = int(os.getenv('PORT', 5500))
+    debug = os.getenv('DEBUG', 'False').lower() == 'true'
+    
+    # Bind to 0.0.0.0 to accept connections from all network interfaces
+    # This allows the server to be accessible from external hosts
+    app.run(host='0.0.0.0', port=port, debug=debug)
 

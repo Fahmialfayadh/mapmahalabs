@@ -149,30 +149,65 @@ const basemaps = {
         maxZoom: 19
     })
 };
+// Basemap event listeners are now handled via switchBasemap logic and individual button clicks
+// Initial listener setup
 document.querySelectorAll('.basemap-btn').forEach(btn => {
     btn.addEventListener('click', e => {
         e.preventDefault();
-        e.stopPropagation(); // INI KUNCI
-
+        e.stopPropagation();
         const key = btn.dataset.basemap;
-        if (!basemaps[key]) return;
-
-        map.removeLayer(currentBasemap);
-        currentBasemap = basemaps[key];
-        currentBasemap.addTo(map);
-
-        document.querySelectorAll('.basemap-btn')
-            .forEach(b => b.classList.remove('active-basemap'));
-        btn.classList.add('active-basemap');
+        switchBasemap(key);
     });
 });
 
 // Set default basemap
 const activeBtn = document.querySelector('.basemap-btn.active-basemap');
+// Default to 'osm' (Light) if no active button, or if active button says so
 const defaultKey = activeBtn ? activeBtn.dataset.basemap : 'osm';
 
 let currentBasemap = basemaps[defaultKey];
-currentBasemap.addTo(map);
+if (currentBasemap) {
+    currentBasemap.addTo(map);
+    // Ensure we start with correct UI state if defaulting
+    if (!activeBtn) {
+        document.querySelectorAll('.basemap-btn[data-basemap="osm"]').forEach(btn => {
+            btn.classList.add('active-basemap', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
+            btn.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
+        });
+    }
+}
+
+// Function to switch basemap programmatically
+function switchBasemap(key) {
+    if (!basemaps[key]) return;
+
+    // Update map layer
+    if (currentBasemap) map.removeLayer(currentBasemap);
+    currentBasemap = basemaps[key];
+    currentBasemap.addTo(map);
+    currentBasemap.bringToBack();
+
+    // Update UI buttons
+    document.querySelectorAll('.basemap-btn').forEach(btn => {
+        if (btn.dataset.basemap === key) {
+            btn.classList.add('active-basemap', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
+            btn.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
+        } else {
+            btn.classList.remove('active-basemap', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
+            btn.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
+        }
+    });
+}
+
+// Listen for theme changes from index.html
+document.addEventListener('themeChanged', function (e) {
+    console.log('Theme changed event received:', e.detail);
+    if (e.detail.theme === 'dark') {
+        switchBasemap('dark');
+    } else {
+        switchBasemap('osm');
+    }
+});
 
 // ============================
 // Layer Management
@@ -1106,30 +1141,8 @@ if (opacitySlider) {
     });
 }
 
-// Basemap switcher
-document.querySelectorAll('.basemap-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
-        const basemapKey = this.dataset.basemap;
-
-        // Remove current basemap
-        map.removeLayer(currentBasemap);
-
-        // Add new basemap
-        currentBasemap = basemaps[basemapKey];
-        currentBasemap.addTo(map);
-
-        // Move basemap to bottom (below overlay layers)
-        currentBasemap.bringToBack();
-
-        // Update active button styles
-        document.querySelectorAll('.basemap-btn').forEach(b => {
-            b.classList.remove('active-basemap', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
-            b.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
-        });
-        this.classList.add('active-basemap', 'border-blue-500', 'bg-blue-50', 'text-blue-700');
-        this.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
-    });
-});
+// Basemap switcher logic is now consolidated at top of file
+// Duplicate listener removed
 
 // ============================
 // Mobile Menu Logic
@@ -2278,136 +2291,96 @@ function displayCorrelationResults(data) {
     matchedRegions.textContent = data.matched_regions || 0;
     yearEl.textContent = data.year || 'All';
 
-    // Scatter Chart (Plotly) - Direct rendering
+    // Scatter Chart (Plotly) - Interactive with Regressions
     const chartContainer = document.getElementById('correlationChart');
+    const regressionControls = document.getElementById('regressionControls');
     const equationEl = document.getElementById('regressionEquation');
 
     if (data.plotly_data && chartContainer) {
-        try {
-            const plotData = data.plotly_data;
+        chartContainer.classList.remove('hidden');
+        document.getElementById('chartZoomControls').classList.remove('hidden');
 
-            // Create scatter trace
-            const scatter = {
-                x: plotData.x,
-                y: plotData.y,
-                mode: 'markers',
-                type: 'scatter',
-                name: 'Data',
-                marker: {
-                    size: 10,
-                    color: '#6366f1',
-                    line: { color: 'white', width: 1 }
-                }
-            };
+        // Show controls if regressions exist
+        if (data.regressions && Object.keys(data.regressions).length > 0) {
+            regressionControls.classList.remove('hidden');
+            if (equationEl) equationEl.classList.remove('hidden');
+        } else {
+            regressionControls.classList.add('hidden');
+        }
 
-            // Create trendline trace
-            const trendX = plotData.x;
-            const trendY = trendX.map(x => plotData.slope * x + plotData.intercept);
-            const trendline = {
-                x: trendX,
-                y: trendY,
-                mode: 'lines',
-                type: 'scatter',
-                name: 'Trend',
-                line: { color: '#ef4444', width: 2 }
-            };
+        // Store data for redraws within the existing state object
+        correlationState.currentData = data;
 
-            const layout = {
-                title: {
-                    text: `${plotData.layer1_name} vs ${plotData.layer2_name}`,
-                    font: { size: 12, family: 'Inter, sans-serif', color: '#334155' }
-                },
-                xaxis: {
-                    title: plotData.layer1_name,
-                    showgrid: true,
-                    gridcolor: '#e2e8f0',
-                    titlefont: { size: 10 },
-                    tickfont: { size: 9 }
-                },
-                yaxis: {
-                    title: plotData.layer2_name,
-                    showgrid: true,
-                    gridcolor: '#e2e8f0',
-                    titlefont: { size: 10 },
-                    tickfont: { size: 9 }
-                },
-                margin: { l: 40, r: 20, t: 40, b: 40 },
-                height: 300,
-                paper_bgcolor: 'rgba(255,255,255,0.5)',
-                plot_bgcolor: 'rgba(255,255,255,0.5)',
-                font: { family: 'Inter, sans-serif', color: '#334155' },
-                showlegend: false,
-                dragmode: 'pan' // Default pan mode
-            };
+        // Initial render with 'linear'
+        renderInteractiveChart('linear');
 
-            const config = {
-                scrollZoom: true,
-                displayModeBar: true,
-                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-                displaylogo: false,
-                responsive: true
-            };
+        // Bind button events for regression toggles
+        document.querySelectorAll('.regression-btn').forEach(btn => {
+            // Remove old listeners to prevent duplicates (cloning trick)
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
 
-            Plotly.newPlot(chartContainer, [scatter, trendline], layout, config);
-            chartContainer.classList.remove('hidden');
+            newBtn.addEventListener('click', (e) => {
+                const model = e.target.dataset.model;
 
-            // Show zoom controls
-            const zoomControls = document.getElementById('chartZoomControls');
-            if (zoomControls) {
-                zoomControls.classList.remove('hidden');
+                // Update active state
+                document.querySelectorAll('.regression-btn').forEach(b => b.classList.remove('active', 'bg-indigo-50', 'text-indigo-700', 'border-indigo-200'));
+                e.target.classList.add('active', 'bg-indigo-50', 'text-indigo-700', 'border-indigo-200');
 
-                // Zoom In button
-                document.getElementById('zoomInBtn').onclick = () => {
-                    // Use actual rendered range from _fullLayout to preserve position
+                // Redraw
+                renderInteractiveChart(model);
+            });
+        });
+
+        // Zoom Controls Logic
+        const zoomControls = document.getElementById('chartZoomControls');
+        if (zoomControls) {
+            zoomControls.classList.remove('hidden');
+
+            // Zoom In button
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            if (zoomInBtn) zoomInBtn.onclick = () => {
+                try {
                     const xRange = chartContainer._fullLayout.xaxis.range;
                     const yRange = chartContainer._fullLayout.yaxis.range;
-
                     const xCenter = (xRange[0] + xRange[1]) / 2;
                     const yCenter = (yRange[0] + yRange[1]) / 2;
                     const xSpan = (xRange[1] - xRange[0]) * 0.4;
                     const ySpan = (yRange[1] - yRange[0]) * 0.4;
-
                     Plotly.relayout(chartContainer, {
                         'xaxis.range': [xCenter - xSpan, xCenter + xSpan],
                         'yaxis.range': [yCenter - ySpan, yCenter + ySpan]
                     });
-                };
+                } catch (e) { console.error(e); }
+            };
 
-                // Zoom Out button
-                document.getElementById('zoomOutBtn').onclick = () => {
-                    // Use actual rendered range from _fullLayout to preserve position
+            // Zoom Out button
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            if (zoomOutBtn) zoomOutBtn.onclick = () => {
+                try {
                     const xRange = chartContainer._fullLayout.xaxis.range;
                     const yRange = chartContainer._fullLayout.yaxis.range;
-
                     const xCenter = (xRange[0] + xRange[1]) / 2;
                     const yCenter = (yRange[0] + yRange[1]) / 2;
                     const xSpan = (xRange[1] - xRange[0]) * 1.25;
                     const ySpan = (yRange[1] - yRange[0]) * 1.25;
-
                     Plotly.relayout(chartContainer, {
                         'xaxis.range': [xCenter - xSpan, xCenter + xSpan],
                         'yaxis.range': [yCenter - ySpan, yCenter + ySpan]
                     });
-                };
+                } catch (e) { console.error(e); }
+            };
 
-                // Reset Zoom button
-                document.getElementById('resetZoomBtn').onclick = () => {
-                    Plotly.relayout(chartContainer, {
-                        'xaxis.autorange': true,
-                        'yaxis.autorange': true
-                    });
-                };
-            }
-
-            if (data.regression_equation && equationEl) {
-                equationEl.textContent = data.regression_equation;
-                equationEl.classList.remove('hidden');
-            }
-        } catch (err) {
-            console.error('Error rendering Plotly chart:', err);
-            chartContainer.classList.add('hidden');
-            if (equationEl) equationEl.classList.add('hidden');
+            // Reset Zoom button
+            const resetBtn = document.getElementById('resetZoomBtn');
+            if (resetBtn) resetBtn.onclick = () => {
+                Plotly.relayout(chartContainer, {
+                    'xaxis.autorange': true,
+                    'yaxis.autorange': true
+                });
+            };
         }
+
     } else if (chartContainer) {
         chartContainer.classList.add('hidden');
         if (equationEl) equationEl.classList.add('hidden');
@@ -2417,6 +2390,96 @@ function displayCorrelationResults(data) {
     resultsEl.classList.remove('hidden');
     // Scroll to results
     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/**
+ * Render interactive chart based on selected regression model
+ */
+function renderInteractiveChart(modelType) {
+    const data = correlationState.currentData;
+    if (!data || !data.plotly_data) return;
+
+    const plotData = data.plotly_data;
+    const chartContainer = document.getElementById('correlationChart');
+    const equationEl = document.getElementById('regressionEquation');
+
+    // 1. Scatter Trace (Always present)
+    const traces = [{
+        x: plotData.x,
+        y: plotData.y,
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Data',
+        marker: {
+            size: 10,
+            color: '#6366f1',
+            line: { color: 'white', width: 1 },
+            opacity: 0.7
+        }
+    }];
+
+    // 2. Add Regression Trace if available
+    let equationText = "Model not suitable for this data";
+
+    if (data.regressions && data.regressions[modelType]) {
+        const reg = data.regressions[modelType];
+        traces.push({
+            x: reg.x,
+            y: reg.y,
+            mode: 'lines',
+            type: 'scatter',
+            name: `${modelType.charAt(0).toUpperCase() + modelType.slice(1)} Fit`,
+            line: { color: '#ef4444', width: 3 }
+        });
+        equationText = reg.equation;
+    } else {
+        // equationText remains default
+    }
+
+    // Update equation display
+    if (equationEl) equationEl.textContent = equationText;
+
+    // Layout
+    const layout = {
+        title: {
+            text: `${plotData.layer1_name} vs ${plotData.layer2_name}`,
+            font: { size: 12, family: 'Plus Jakarta Sans, sans-serif', color: '#64748b' }
+        },
+        xaxis: {
+            title: plotData.layer1_name,
+            showgrid: true,
+            gridcolor: '#e2e8f0',
+            zerolinecolor: '#e2e8f0',
+            titlefont: { size: 11, family: 'Plus Jakarta Sans, sans-serif' },
+            tickfont: { size: 10 }
+        },
+        yaxis: {
+            title: plotData.layer2_name,
+            showgrid: true,
+            gridcolor: '#e2e8f0',
+            zerolinecolor: '#e2e8f0',
+            titlefont: { size: 11, family: 'Plus Jakarta Sans, sans-serif' },
+            tickfont: { size: 10 }
+        },
+        margin: { l: 50, r: 20, t: 40, b: 40 },
+        height: 300,
+        paper_bgcolor: 'rgba(255,255,255,0)',
+        plot_bgcolor: 'rgba(255,255,255,0)',
+        font: { family: 'Plus Jakarta Sans, sans-serif', color: '#334155' },
+        showlegend: false,
+        dragmode: 'pan',
+        hovermode: 'closest'
+    };
+
+    const config = {
+        scrollZoom: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
+        displaylogo: false,
+        responsive: true
+    };
+
+    Plotly.newPlot(chartContainer, traces, layout, config);
 }
 
 // Event Listeners for Correlation & Dark Mode

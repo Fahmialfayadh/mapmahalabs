@@ -117,11 +117,11 @@
                 (function () {
                     console.log('INLINE DARK MODE SCRIPT RUNNING');
 
-                    // Set initial state
+                    // Set initial state - Default to LIGHT mode
                     try {
                         const savedTheme = localStorage.getItem('theme');
-                        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                        const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+                        // Default to light mode if no saved preference
+                        const isDark = savedTheme === 'dark';
 
                         if (isDark) {
                             document.documentElement.classList.add('dark');
@@ -149,10 +149,17 @@
                                 if (html.classList.contains('dark')) {
                                     html.classList.remove('dark');
                                     localStorage.setItem('theme', 'light');
+                                    const event = new CustomEvent('themeChanged', {
+                                        detail: { theme: 'light' }
+                                    });
+                                    document.dispatchEvent(event);
                                     console.log('Switched to LIGHT mode');
                                 } else {
                                     html.classList.add('dark');
-                                    localStorage.setItem('theme', 'dark');
+                                    const event = new CustomEvent('themeChanged', {
+                                        detail: { theme: 'dark' }
+                                    });
+                                    document.dispatchEvent(event);
                                     console.log('Switched to DARK mode');
                                 }
                             });
@@ -170,6 +177,33 @@
 
             <!-- TAB 1: Map Layers -->
             <div id="map-tab" class="tab-content active space-y-8">
+
+                <!-- Basemap (Inside Map Tab - Moved to Top) -->
+                <div
+                    class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-colors duration-300">
+                    <h3
+                        class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Basemap
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button
+                            class="basemap-btn active-basemap px-3 py-2 text-xs font-medium rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-700 hover:shadow-md transition-all"
+                            data-basemap="osm">Standar</button>
+                        <button
+                            class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border border-gray-100 bg-gray-50 text-gray-500 dark:bg-slate-800 dark:text-gray-400 dark:border-gray-700 hover:bg-white dark:hover:bg-slate-700 hover:border-gray-200 hover:shadow-sm transition-all"
+                            data-basemap="satellite">Satelit</button>
+                        <button
+                            class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border border-gray-100 bg-gray-50 text-gray-500 dark:bg-slate-800 dark:text-gray-400 dark:border-gray-700 hover:bg-white dark:hover:bg-slate-700 hover:border-gray-200 hover:shadow-sm transition-all"
+                            data-basemap="topo">Terrain</button>
+                        <button
+                            class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border border-gray-100 bg-gray-50 text-gray-500 dark:bg-slate-800 dark:text-gray-400 dark:border-gray-700 hover:bg-white dark:hover:bg-slate-700 hover:border-gray-200 hover:shadow-sm transition-all"
+                            data-basemap="dark">Dark</button>
+                    </div>
+                </div>
 
                 <!-- Data Layers Section -->
                 <div>
@@ -571,30 +605,7 @@
 
 
 
-                <!-- Basemap (Inside Map Tab) -->
-                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Basemap
-                    </h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button
-                            class="basemap-btn active-basemap px-3 py-2 text-xs font-medium rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:shadow-md transition-all"
-                            data-basemap="osm">Standar</button>
-                        <button
-                            class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border border-gray-100 bg-gray-50 text-gray-500 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all"
-                            data-basemap="satellite">Satelit</button>
-                        <button
-                            class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border border-gray-100 bg-gray-50 text-gray-500 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all"
-                            data-basemap="topo">Terrain</button>
-                        <button
-                            class="basemap-btn px-3 py-2 text-xs font-medium rounded-lg border border-gray-100 bg-gray-50 text-gray-500 hover:bg-white hover:border-gray-200 hover:shadow-sm transition-all"
-                            data-basemap="dark">Dark</button>
-                    </div>
-                </div>
+
             </div>
 
             <!-- TAB 2: Analysis (Correlation) -->
@@ -734,6 +745,27 @@
                                 <div class="text-center p-3 bg-purple-50 rounded-xl">
                                     <div id="correlationYear" class="text-lg font-bold text-purple-600">2024</div>
                                     <div class="text-[10px] text-gray-500 uppercase tracking-wider">Year</div>
+                                </div>
+                            </div>
+
+                            <!-- Regression Controls -->
+                            <div id="regressionControls" class="mt-4 mb-2 hidden">
+                                <label
+                                    class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Regression
+                                    Model</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <button
+                                        class="regression-btn active px-3 py-1.5 text-xs font-medium rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all"
+                                        data-model="linear">Linear</button>
+                                    <button
+                                        class="regression-btn px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-all"
+                                        data-model="poly">Polynomial</button>
+                                    <button
+                                        class="regression-btn px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-all"
+                                        data-model="log">Log</button>
+                                    <button
+                                        class="regression-btn px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-all"
+                                        data-model="power">Power</button>
                                 </div>
                             </div>
 

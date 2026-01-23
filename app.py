@@ -1707,10 +1707,16 @@ def api_correlation():
         try:
             scatter_result = scatter(values1, values2, layer1_name, layer2_name)
             result['plotly_data'] = scatter_result.get('chart_data', {})
-            result['regression_equation'] = scatter_result.get('equation', '')
+            result['regressions'] = scatter_result.get('regressions', {})
+            # Default to linear equation for backward compat if needed, or just grab linear
+            if scatter_result.get('regressions') and scatter_result['regressions'].get('linear'):
+                 result['regression_equation'] = scatter_result['regressions']['linear']['equation']
+            else:
+                 result['regression_equation'] = "N/A"
         except Exception as chart_err:
             print(f"Error generating chart: {chart_err}")
             result['plotly_data'] = None
+            result['regressions'] = {}
         
         # Add additional metadata
         result['layer1'] = {

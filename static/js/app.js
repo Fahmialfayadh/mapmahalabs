@@ -253,8 +253,8 @@ function loadFromUrlParams() {
             const toggle = document.querySelector(`.layer-toggle[data-folder="${id}"]`);
             if (toggle && !toggle.checked) {
                 toggle.checked = true;
-                // Trigger change event manually
-                toggle.dispatchEvent(new Event('change'));
+                // Trigger change event manually - MUST bubble for delegation to work
+                toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
                 // Expand card visually
                 const card = toggle.closest('.layer-card');

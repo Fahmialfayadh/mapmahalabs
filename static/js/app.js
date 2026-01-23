@@ -2283,22 +2283,14 @@ function displayCorrelationResults(data) {
     directionBadge.className = 'inline-block ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
     directionBadge.classList.add(direction === 'positif' ? 'direction-positif' : 'direction-negatif');
 
-    // Insight text (render full markdown using marked.js)
+    // Insight text (simple markdown parsing)
     const text = data.text || 'No insight available.';
-    if (typeof marked !== 'undefined' && marked.parse) {
-        insightText.innerHTML = marked.parse(text);
-    } else {
-        // Fallback: basic markdown parsing
-        let html = text
-            .replace(/### (.*)/g, '<h3 class="font-bold text-sm mt-3 mb-1">$1</h3>')
-            .replace(/---/g, '<hr class="my-2 border-gray-200">')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\| (.*?) \| (.*?) \|/g, '<div class="flex justify-between text-xs"><span>$1</span><span>$2</span></div>')
-            .replace(/\|[-\|]+\|/g, '')
-            .replace(/- (.*)/g, '<li class="text-xs">$1</li>')
-            .replace(/\n/g, '<br>');
-        insightText.innerHTML = html;
-    }
+    let html = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+        .replace(/• /g, '<span class="text-indigo-500 mr-1">•</span>')
+        .replace(/\n\n/g, '</p><p class="mt-3">')
+        .replace(/\n/g, '<br>');
+    insightText.innerHTML = '<p>' + html + '</p>';
 
     // Statistics
     matchedRegions.textContent = data.matched_regions || 0;

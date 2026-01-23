@@ -107,56 +107,40 @@ def generate_smart_insight(layer1_name, data1, layer2_name, data2, historical_da
             else:
                 outlier_warning = f"{len(unique_outliers)} outlier(s) detected but have minimal impact on correlation."
     
-    # --- 5. Generate Text Insight (Cleaner Format) ---
+    # --- 5. Generate Text Insight (Clean & Professional) ---
     
     direction = "positive" if pearson_r > 0 else "negative"
     if "Non-linear" in relationship_type and abs_spearman > abs_pearson:
          direction = "positive" if spearman_rho > 0 else "negative"
 
     trend_desc = "increase" if direction == "positive" else "decrease"
-    sig_text = "✓ Significant" if pearson_p < 0.05 else "✗ Not Significant"
+    sig_status = "Significant" if pearson_p < 0.05 else "Not Significant"
     
-    # Cleaner, more concise insight
-    insight_text = f"""### 📊 Summary
+    # Clean, professional insight text
+    insight_text = f"""**Relationship Type:** {strength} {relationship_type} ({direction})
 
-Found a **{strength} {relationship_type}** ({direction}) between the two variables.
+**Key Findings:**
+• Pearson r = {pearson_r:.3f} | Spearman ρ = {spearman_rho:.3f}
+• p-value = {pearson_p:.4f} ({sig_status})
+• Sample size: {n} regions
 
----
+**Interpretation:**
+When {layer1_name} increases, {layer2_name} tends to {trend_desc}."""
 
-### 📈 Statistical Metrics
-
-| Metric | Value |
-|--------|-------|
-| Pearson (r) | {pearson_r:.3f} |
-| Spearman (ρ) | {spearman_rho:.3f} |
-| MI Score | {mi_score:.3f} |
-| p-value | {pearson_p:.4f} ({sig_text}) |
-| Sample (n) | {n} |
-
----
-
-### 💡 Interpretation
-
-When **{layer1_name}** increases, **{layer2_name}** tends to **{trend_desc}**.
-
----
-
-### ⚠️ Important Notes
-
-- Correlation ≠ Causation
-- Regression line is a mathematical approximation"""
-
-    # Add sample size warning if small
+    # Add warnings only if relevant
+    warnings = []
+    
     if n < 30:
-        insight_text += f"\n- ⚡ Small sample (n={n}), interpret with caution"
+        warnings.append(f"Small sample size (n={n}) - interpret with caution")
     
-    # Add outlier warning if significant
     if has_outliers and "Removing them changes" in outlier_warning:
-        insight_text += f"\n- {outlier_warning}"
+        warnings.append(f"Outliers detected: correlation shifts when removed")
         
-    # Add model suggestion for non-linear
     if "Non-linear" in relationship_type:
-        insight_text += "\n- 💡 Try Log/Polynomial model for better fit"
+        warnings.append("Consider Log or Polynomial regression for better fit")
+    
+    if warnings:
+        insight_text += "\n\n**Notes:**\n" + "\n".join(f"• {w}" for w in warnings)
 
     # Confidence Score
     confidence = "High"
@@ -165,11 +149,10 @@ When **{layer1_name}** increases, **{layer2_name}** tends to **{trend_desc}**.
     elif n < 30 or "Moderate" in strength:
         confidence = "Medium"
     
-    # Check for outliers lowering confidence
     if has_outliers and "Removing them changes" in outlier_warning:
          if confidence == "High": confidence = "Medium"
         
-    insight_text += f"\n\n**Confidence: {confidence}**"
+    insight_text += f"\n\n**Confidence Level:** {confidence}"
 
     return {
         "score": round(pearson_r, 2), # Keep for backward compatibility

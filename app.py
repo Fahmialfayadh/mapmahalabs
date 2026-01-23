@@ -32,16 +32,18 @@ os.makedirs('temp_tiles', exist_ok=True)
 # ============================
 
 # R2 Storage (S3-compatible)
-R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID")
-R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY_ID")
-R2_SECRET_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
-R2_BUCKET = os.getenv("R2_BUCKET_NAME", "map-tiles")
-R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "")
+# Strip whitespace to prevent issues with trailing newlines or spaces
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "").strip()
+R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY_ID", "").strip()
+R2_SECRET_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "").strip()
+R2_BUCKET = os.getenv("R2_BUCKET_NAME", "map-tiles").strip()
+R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "").strip()
 
 # D1 Database
-D1_API_TOKEN = os.getenv("D1_API_TOKEN")
-D1_ACCOUNT_ID = os.getenv("D1_ACCOUNT_ID")
-D1_DATABASE_ID = os.getenv("D1_DATABASE_ID")
+# Strip whitespace to prevent issues with trailing newlines or spaces
+D1_API_TOKEN = os.getenv("D1_API_TOKEN", "").strip()
+D1_ACCOUNT_ID = os.getenv("D1_ACCOUNT_ID", "").strip()
+D1_DATABASE_ID = os.getenv("D1_DATABASE_ID", "").strip()
 
 # Initialize R2 client
 r2_client = None
@@ -91,6 +93,18 @@ def migrate_d1_schema():
     if res is None:
         print("Migrating: Adding source_link column...")
         d1_query("ALTER TABLE map_layers ADD COLUMN source_link TEXT", is_select=False)
+
+    # Check/Migrate is_insight
+    res = d1_query("SELECT is_insight FROM map_layers LIMIT 1")
+    if res is None:
+        print("Migrating: Adding is_insight column...")
+        d1_query("ALTER TABLE map_layers ADD COLUMN is_insight BOOLEAN DEFAULT 0", is_select=False)
+
+    # Check/Migrate article_url
+    res = d1_query("SELECT article_url FROM map_layers LIMIT 1")
+    if res is None:
+        print("Migrating: Adding article_url column...")
+        d1_query("ALTER TABLE map_layers ADD COLUMN article_url TEXT", is_select=False)
 
     # Check/Migrate layer_type (existing logic)
     url = f"https://api.cloudflare.com/client/v4/accounts/{D1_ACCOUNT_ID}/d1/database/{D1_DATABASE_ID}/query"
@@ -155,11 +169,11 @@ def get_layers():
     return result if result else []
 
 
-def insert_layer(name, folder_path, description="", source_link="", layer_type="tiles"):
+def insert_layer(name, folder_path, description="", source_link="", layer_type="tiles", is_insight=False, article_url=""):
     """Insert a new layer into D1."""
-    sql = "INSERT INTO map_layers (id, name, folder_path, description, source_link, layer_type) VALUES (?, ?, ?, ?, ?, ?)"
+    sql = "INSERT INTO map_layers (id, name, folder_path, description, source_link, layer_type, is_insight, article_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     layer_id = str(uuid.uuid4())
-    success = d1_query(sql, [layer_id, name, folder_path, description, source_link, layer_type], is_select=False)
+    success = d1_query(sql, [layer_id, name, folder_path, description, source_link, layer_type, is_insight, article_url], is_select=False)
     if success:
         print(f"✓ Layer '{name}' saved to D1 with ID: {layer_id}")
     else:
@@ -174,7 +188,7 @@ def delete_layer(layer_id):
     return success
 
 
-def update_layer(layer_id, name=None, description=None, source_link=None):
+def update_layer(layer_id, name=None, description=None, source_link=None, is_insight=None, article_url=None):
     """Update a layer's metadata in D1."""
     # Build dynamic UPDATE query based on provided fields
     updates = []
@@ -189,6 +203,12 @@ def update_layer(layer_id, name=None, description=None, source_link=None):
     if source_link is not None:
         updates.append("source_link = ?")
         params.append(source_link)
+    if is_insight is not None:
+        updates.append("is_insight = ?")
+        params.append(is_insight)
+    if article_url is not None:
+        updates.append("article_url = ?")
+        params.append(article_url)
     
     if not updates:
         return False
@@ -266,7 +286,7 @@ def upload_tiles_to_r2(layer_name, tiles_dir, task_id=None):
 # Background Tasks
 # ============================
 
-def process_xyz_zip(task_id, zip_path, layer_name, description, source_link=""):
+def process_xyz_zip(task_id, zip_path, layer_name, description, source_link="", is_insight=False, article_url=""):
     """Process XYZ tiles ZIP."""
     global conversion_tasks
     try:
@@ -287,7 +307,7 @@ def process_xyz_zip(task_id, zip_path, layer_name, description, source_link=""):
         success, msg = upload_tiles_to_r2(layer_name, tiles_dir, task_id)
 
         if success:
-            insert_layer(layer_name, layer_name, description or "XYZ tiles layer", source_link=source_link)
+            insert_layer(layer_name, layer_name, description or "XYZ tiles layer", source_link=source_link, is_insight=is_insight, article_url=article_url)
             conversion_tasks[task_id] = {'status': 'done', 'progress': 100, 'message': f'Layer "{layer_name}" berhasil!'}
         else:
             conversion_tasks[task_id] = {'status': 'error', 'error': msg}
@@ -299,7 +319,7 @@ def process_xyz_zip(task_id, zip_path, layer_name, description, source_link=""):
 
 
 
-def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col_name=None, source_link=""):
+def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col_name=None, source_link="", is_insight=False, article_url=""):
     """
     Process CSV for Choropleth.
     Supports:
@@ -510,7 +530,9 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
                 layer_id = insert_layer(layer_name, layer_name, 
                                        description or f"Heatmap ({len(data)} regions, {len(years)} periods)", 
                                        source_link=source_link,
-                                       layer_type='choropleth')
+                                       layer_type='choropleth',
+                                       is_insight=is_insight,
+                                       article_url=article_url)
                 
                 if layer_id:
                     conversion_tasks[task_id] = {
@@ -536,7 +558,7 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
         conversion_tasks[task_id] = {'status': 'error', 'error': str(e)}
 
 
-def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, popup_col, source_link=""):
+def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, popup_col, source_link="", is_insight=False, article_url=""):
     """Process CSV file - convert to GeoJSON and upload to R2.
 
     Supports:
@@ -883,7 +905,7 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
                     )
                 
                 # Insert into D1
-                layer_id = insert_layer(layer_name, layer_name, description or f"CSV layer ({row_count} points)", source_link=source_link, layer_type='geojson')
+                layer_id = insert_layer(layer_name, layer_name, description or f"CSV layer ({row_count} points)", source_link=source_link, layer_type='geojson', is_insight=is_insight, article_url=article_url)
 
                 if layer_id:
                     conversion_tasks[task_id] = {'status': 'done', 'progress': 100, 'message': f'Layer "{layer_name}" berhasil! ({row_count} titik)'}
@@ -905,7 +927,7 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
         conversion_tasks[task_id] = {'status': 'error', 'error': str(e)}
 
 
-def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom_max, source_link=""):
+def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom_max, source_link="", is_insight=False, article_url=""):
     """Process GeoTIFF - convert to 8-bit first then generate tiles."""
     global conversion_tasks
     import time
@@ -1038,7 +1060,7 @@ def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom
 
         # Step 4: Save to D1
         log("[Step 4/4] Saving metadata to D1...")
-        layer_id = insert_layer(layer_name, layer_name, description or "GeoTIFF layer", source_link=source_link)
+        layer_id = insert_layer(layer_name, layer_name, description or "GeoTIFF layer", source_link=source_link, is_insight=is_insight, article_url=article_url)
 
         if layer_id:
             conversion_tasks[task_id] = {'status': 'done', 'progress': 100, 'message': f'Layer "{layer_name}" berhasil!'}
@@ -1099,6 +1121,9 @@ def admin_upload():
 
     description = request.form.get('description', '')
     source_link = request.form.get('source_link', '')
+    is_insight = request.form.get('is_insight') == 'true'
+    article_url = request.form.get('article_url', '')
+
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{layer_name}_{secure_filename(file.filename)}")
     file.save(filepath)
 
@@ -1106,23 +1131,23 @@ def admin_upload():
     conversion_tasks[task_id] = {'status': 'starting', 'progress': 0}
 
     if upload_type == 'xyz':
-        thread = threading.Thread(target=process_xyz_zip, args=(task_id, filepath, layer_name, description, source_link))
+        thread = threading.Thread(target=process_xyz_zip, args=(task_id, filepath, layer_name, description, source_link, is_insight, article_url))
     elif upload_type == 'csv':
         lat_col = request.form.get('lat_col', '')
         lon_col = request.form.get('lon_col', '')
         popup_col = request.form.get('popup_col', '')
-        thread = threading.Thread(target=process_csv, args=(task_id, filepath, layer_name, description, lat_col, lon_col, popup_col, source_link))
+        thread = threading.Thread(target=process_csv, args=(task_id, filepath, layer_name, description, lat_col, lon_col, popup_col, source_link, is_insight, article_url))
     elif upload_type == 'choropleth':
         # CSV for choropleth heatmap with time-series support
         value_col = request.form.get('value_col', '')
-        thread = threading.Thread(target=process_csv_choropleth, args=(task_id, filepath, layer_name, description, value_col, source_link))
+        thread = threading.Thread(target=process_csv_choropleth, args=(task_id, filepath, layer_name, description, value_col, source_link, is_insight, article_url))
     else:  # geotiff
         if not check_gdal():
             os.remove(filepath)
             return jsonify({'success': False, 'error': 'GDAL tidak terinstall'})
         zoom_min = int(request.form.get('zoom_min', 10))
         zoom_max = int(request.form.get('zoom_max', 14))
-        thread = threading.Thread(target=process_geotiff, args=(task_id, filepath, layer_name, description, zoom_min, zoom_max, source_link))
+        thread = threading.Thread(target=process_geotiff, args=(task_id, filepath, layer_name, description, zoom_min, zoom_max, source_link, is_insight, article_url))
 
     thread.daemon = True
     thread.start()
@@ -1155,8 +1180,10 @@ def admin_update(layer_id):
         name = data.get('name')
         description = data.get('description')
         source_link = data.get('source_link')
+        is_insight = data.get('is_insight')
+        article_url = data.get('article_url')
         
-        success = update_layer(layer_id, name=name, description=description, source_link=source_link)
+        success = update_layer(layer_id, name=name, description=description, source_link=source_link, is_insight=is_insight, article_url=article_url)
         
         if success:
             return jsonify({'success': True, 'message': 'Layer berhasil diupdate'})
@@ -1196,28 +1223,86 @@ def api_layer_data(folder):
 def api_choropleth_data(folder):
     """Proxy endpoint to fetch choropleth data from R2."""
     try:
+        # Validate R2_PUBLIC_URL is configured
+        if not R2_PUBLIC_URL:
+            error_msg = "R2_PUBLIC_URL not configured. Please set environment variable."
+            print(f"ERROR: {error_msg}")
+            return jsonify({'error': error_msg}), 500
+        
+        # Build URL and fetch from R2
         url = f"{R2_PUBLIC_URL}/{folder}/choropleth.json"
+        print(f"Fetching choropleth from: {url}")
+        
         response = requests.get(url, timeout=30)
+        print(f"Response status: {response.status_code}")
         
         if response.status_code == 200:
             return jsonify(response.json())
+        elif response.status_code == 404:
+            error_msg = f'Choropleth data not found for layer "{folder}". File may not be uploaded to R2.'
+            print(f"ERROR: {error_msg}")
+            return jsonify({'error': error_msg}), 404
         else:
-            return jsonify({'error': f'Failed to fetch: HTTP {response.status_code}'}), response.status_code
+            error_msg = f'Failed to fetch: HTTP {response.status_code}'
+            print(f"ERROR: {error_msg}")
+            return jsonify({'error': error_msg}), response.status_code
+            
+    except requests.exceptions.Timeout:
+        error_msg = f'Timeout connecting to R2 storage. Check network connectivity.'
+        print(f"ERROR: {error_msg}")
+        return jsonify({'error': error_msg}), 504
+    except requests.exceptions.ConnectionError as e:
+        error_msg = f'Connection error to R2 storage: {str(e)}'
+        print(f"ERROR: {error_msg}")
+        return jsonify({'error': 'Cannot connect to R2 storage. Check firewall/network settings.'}), 503
     except Exception as e:
+        error_msg = f'Unexpected error in api_choropleth_data: {str(e)}'
+        print(f"ERROR: {error_msg}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/layer-geometry/<folder>/<filename>')
 def api_layer_geometry(folder, filename):
     """Proxy endpoint to fetch custom geometry GeoJSON from R2."""
     try:
+        # Validate R2_PUBLIC_URL is configured
+        if not R2_PUBLIC_URL:
+            error_msg = "R2_PUBLIC_URL not configured. Please set environment variable."
+            print(f"ERROR: {error_msg}")
+            return jsonify({'error': error_msg}), 500
+        
+        # Build URL and fetch from R2
         url = f"{R2_PUBLIC_URL}/{folder}/{filename}"
+        print(f"Fetching geometry from: {url}")
+        
         response = requests.get(url, timeout=30)
+        print(f"Response status: {response.status_code}")
         
         if response.status_code == 200:
             return jsonify(response.json())
+        elif response.status_code == 404:
+            error_msg = f'Geometry file "{filename}" not found for layer "{folder}"'
+            print(f"ERROR: {error_msg}")
+            return jsonify({'error': error_msg}), 404
         else:
-            return jsonify({'error': f'Failed to fetch: HTTP {response.status_code}'}), response.status_code
+            error_msg = f'Failed to fetch: HTTP {response.status_code}'
+            print(f"ERROR: {error_msg}")
+            return jsonify({'error': error_msg}), response.status_code
+            
+    except requests.exceptions.Timeout:
+        error_msg = f'Timeout connecting to R2 storage'
+        print(f"ERROR: {error_msg}")
+        return jsonify({'error': error_msg}), 504
+    except requests.exceptions.ConnectionError as e:
+        error_msg = f'Connection error to R2 storage: {str(e)}'
+        print(f"ERROR: {error_msg}")
+        return jsonify({'error': 'Cannot connect to R2 storage'}), 503
     except Exception as e:
+        error_msg = f'Unexpected error in api_layer_geometry: {str(e)}'
+        print(f"ERROR: {error_msg}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 

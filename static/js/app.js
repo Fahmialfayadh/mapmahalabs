@@ -185,6 +185,51 @@ const storageBaseUrl = window.APP_CONFIG?.storageUrl || "";
 let activeLayers = {};
 
 // ============================
+// Deep Linking Logic
+// ============================
+function updateUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const activeLayerIds = [];
+
+    // Collect active layers
+    document.querySelectorAll('.layer-toggle:checked').forEach(toggle => {
+        // Use folder name as ID (slug)
+        activeLayerIds.push(toggle.dataset.folder);
+    });
+
+    if (activeLayerIds.length > 0) {
+        params.set('layers', activeLayerIds.join(','));
+    } else {
+        params.delete('layers');
+    }
+
+    // Update URL without reloading
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+}
+
+function loadFromUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const layersParam = params.get('layers');
+
+    if (layersParam) {
+        const layerIds = layersParam.split(',');
+        layerIds.forEach(id => {
+            const toggle = document.querySelector(`.layer-toggle[data-folder="${id}"]`);
+            if (toggle && !toggle.checked) {
+                toggle.checked = true;
+                // Trigger change event manually
+                toggle.dispatchEvent(new Event('change'));
+
+                // Expand card visually
+                const card = toggle.closest('.layer-card');
+                if (card) card.classList.add('expanded');
+            }
+        });
+    }
+}
+
+// ============================
 // Event Handlers (using event delegation for dynamic layers)
 // ============================
 
@@ -193,12 +238,15 @@ let activeLayers = {};
 // function getColor(d, maxVal) { ... }
 
 // Accordion Toggle Function
+// Accordion Toggle Function (Modified for Insight Layers)
 function toggleLayerDetail(element, event) {
     // Check if we clicked on the switch (handled by stopPropagation, but double check)
     if (event.target.closest('.layer-toggle') || event.target.closest('.toggle-switch') || event.target.closest('a')) {
         return;
     }
-    // Toggle the expanded class on the clicked item's parent card
+
+
+    // Default behavior: Toggle the expanded class
     const card = element.closest('.layer-card');
     if (card) {
         card.classList.toggle('expanded');
@@ -238,6 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
+
+    // Load state from URL
+    loadFromUrlParams();
 });
 
 document.getElementById('layersList').addEventListener('change', async function (e) {
@@ -625,6 +676,9 @@ document.getElementById('layersList').addEventListener('change', async function 
             delete activeLayers[folder];
         }
     }
+
+    // Update URL parameters
+    updateUrlParams();
 });
 
 // Helper function to format numbers

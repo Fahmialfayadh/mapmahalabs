@@ -222,7 +222,10 @@
                                         <label class="relative inline-flex items-center cursor-pointer">
                                             <input type="checkbox" class="sr-only peer layer-toggle"
                                                 data-folder="{{ layer.folder_path }}"
-                                                data-type="{{ layer.layer_type or 'tiles' }}">
+                                                data-type="{{ layer.layer_type or 'tiles' }}"
+                                                data-is-insight="{{ 'true' if layer.is_insight else 'false' }}"
+                                                data-article-url="{{ layer.article_url or '' }}"
+                                                data-name="{{ layer.name }}" data-description="{{ layer.description }}">
                                             <div
                                                 class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 shadow-inner">
                                             </div>
@@ -232,9 +235,25 @@
 
                                 <!-- Expandable Details -->
                                 <div class="layer-details space-y-4">
-                                    <p class="text-xs text-gray-500 leading-relaxed font-medium">
-                                        {{ layer.description or 'Visualisasi data spasial interaktif.' }}
+                                    {{ layer.description or 'Visualisasi data spasial interaktif.' }}
                                     </p>
+
+                                    {% if layer.is_insight %}
+                                    <button
+                                        onclick='openInsightModal({{ layer.name | tojson }}, {{ layer.description | replace("\n", " ") | tojson }}, "{{ layer.article_url }}"); event.stopPropagation();'
+                                        class="w-full mt-2 mb-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 group">
+                                        <div
+                                            class="p-1 bg-white/20 rounded-full group-hover:scale-110 transition-transform">
+                                            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                                                </path>
+                                            </svg>
+                                        </div>
+                                        <span>View Insight Article</span>
+                                    </button>
+                                    {% endif %}
 
                                     {% if layer.source_link %}
                                     <a href="{{ layer.source_link }}" target="_blank" onclick="event.stopPropagation()"
@@ -943,6 +962,8 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/config.js') }}?v=3"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
+    <!-- Insight Popup Modal -->
+    {% include 'popup.html' %}
 </body>
 
 </html>

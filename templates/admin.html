@@ -172,6 +172,23 @@
                                 layer)</p>
                         </div>
 
+                        <!-- Insight Settings -->
+                        <div class="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                            <label class="flex items-center gap-2 cursor-pointer mb-3">
+                                <input type="checkbox" id="isInsight" name="is_insight" value="true"
+                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300">
+                                <span class="font-bold text-sm text-indigo-900">✨ Insight Layer</span>
+                            </label>
+
+                            <div id="insightFields" class="hidden pl-6 border-l-2 border-indigo-200">
+                                <label class="block text-sm font-medium text-indigo-900 mb-1">Article URL</label>
+                                <input type="url" id="articleUrl" name="article_url"
+                                    class="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                    placeholder="https://mahainsight.com/article/...">
+                                <p class="text-xs text-indigo-600 mt-1">Link ini akan muncul di popup layer.</p>
+                            </div>
+                        </div>
+
                         <!-- Zoom settings (only for GeoTIFF) -->
                         <div id="zoomSettings" class="hidden grid grid-cols-2 gap-4">
                             <div>
@@ -302,12 +319,19 @@
                             {% if layer.source_link %}<p class="text-xs text-blue-500 truncate">🔗 {{
                                 layer.source_link[:40] }}{% if layer.source_link|length > 40 %}...{% endif %}</p>{%
                             endif %}
+                            {% if layer.is_insight %}
+                            <p
+                                class="text-[10px] font-bold text-indigo-600 mt-1 bg-indigo-50 inline-block px-1.5 py-0.5 rounded">
+                                ✨ Insight Layer</p>
+                            {% endif %}
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button class="edit-layer p-2 text-blue-500 hover:bg-blue-100 rounded-lg"
                                 data-id="{{ layer.id }}" data-name="{{ layer.name }}"
                                 data-description="{{ layer.description or '' }}"
-                                data-source="{{ layer.source_link or '' }}" title="Edit Layer">
+                                data-source="{{ layer.source_link or '' }}"
+                                data-insight="{{ 'true' if layer.is_insight else 'false' }}"
+                                data-article="{{ layer.article_url or '' }}" title="Edit Layer">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
@@ -390,6 +414,21 @@
                         class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="https://contoh.com/data">
                 </div>
+
+                <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <label class="flex items-center gap-2 cursor-pointer mb-2">
+                        <input type="checkbox" id="editLayerInsight"
+                            class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300">
+                        <span class="font-medium text-sm text-gray-800">Insight Layer</span>
+                    </label>
+                    <div id="editInsightFields" class="hidden">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Article URL</label>
+                        <input type="url" id="editLayerArticle"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                            placeholder="https://mahainsight.com/...">
+                    </div>
+                </div>
+
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')"
                         class="flex-1 py-2.5 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50">
@@ -714,6 +753,21 @@
             });
         });
 
+        // Insight Fields Toggling
+        const isInsight = document.getElementById('isInsight');
+        const insightFields = document.getElementById('insightFields');
+        isInsight.addEventListener('change', () => {
+            if (isInsight.checked) insightFields.classList.remove('hidden');
+            else insightFields.classList.add('hidden');
+        });
+
+        const editLayerInsight = document.getElementById('editLayerInsight');
+        const editInsightFields = document.getElementById('editInsightFields');
+        editLayerInsight.addEventListener('change', () => {
+            if (editLayerInsight.checked) editInsightFields.classList.remove('hidden');
+            else editInsightFields.classList.add('hidden');
+        });
+
         // Edit layer
         const editModal = document.getElementById('editModal');
         const editForm = document.getElementById('editForm');
@@ -725,6 +779,14 @@
                 document.getElementById('editLayerName').value = this.dataset.name;
                 document.getElementById('editLayerDesc').value = this.dataset.description;
                 document.getElementById('editLayerSource').value = this.dataset.source;
+
+                // Populate Insight fields
+                const isInsightVal = this.dataset.insight === 'true';
+                document.getElementById('editLayerInsight').checked = isInsightVal;
+                document.getElementById('editLayerArticle').value = this.dataset.article;
+
+                if (isInsightVal) document.getElementById('editInsightFields').classList.remove('hidden');
+                else document.getElementById('editInsightFields').classList.add('hidden');
 
                 // Show modal
                 editModal.classList.remove('hidden');
@@ -749,7 +811,9 @@
             const data = {
                 name: document.getElementById('editLayerName').value.trim(),
                 description: document.getElementById('editLayerDesc').value.trim(),
-                source_link: document.getElementById('editLayerSource').value.trim()
+                source_link: document.getElementById('editLayerSource').value.trim(),
+                is_insight: document.getElementById('editLayerInsight').checked,
+                article_url: document.getElementById('editLayerArticle').value.trim()
             };
 
             try {

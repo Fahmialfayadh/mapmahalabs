@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS map_layers (
     description TEXT,
     source_link TEXT,
     layer_type TEXT DEFAULT 'tiles',  -- 'tiles' | 'geojson'
+    is_insight BOOLEAN DEFAULT 0,
+    article_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

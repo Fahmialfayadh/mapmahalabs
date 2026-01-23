@@ -2262,40 +2262,45 @@ function displayCorrelationResults(data) {
         scoreBadge.classList.add('weak');
     }
 
-    // Strength
-    const strength = data.strength || 'lemah';
-    strengthBadge.textContent = strength.charAt(0).toUpperCase() + strength.slice(1);
+    // Strength (from classification object)
+    const strength = (data.classification && data.classification.strength) ? data.classification.strength : 'Weak';
+    strengthBadge.textContent = strength;
     strengthBadge.className = 'inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
 
-    if (strength === 'sangat kuat') {
-        strengthBadge.classList.add('strength-sangat-kuat');
-    } else if (strength === 'cukup kuat') {
-        strengthBadge.classList.add('strength-cukup-kuat');
-    } else if (strength === 'moderat') {
-        strengthBadge.classList.add('strength-moderat');
+    if (strength.toLowerCase().includes('strong')) {
+        strengthBadge.classList.add('bg-emerald-100', 'text-emerald-700', 'border', 'border-emerald-200');
+    } else if (strength.toLowerCase().includes('moderate')) {
+        strengthBadge.classList.add('bg-blue-100', 'text-blue-700', 'border', 'border-blue-200');
     } else {
-        strengthBadge.classList.add('strength-lemah');
+        strengthBadge.classList.add('bg-gray-100', 'text-gray-600', 'border', 'border-gray-200');
     }
 
-    // Direction
-    const direction = data.direction || 'positif';
+    // Direction (from classification object)
+    const direction = (data.classification && data.classification.direction) ? data.classification.direction : 'positive';
     directionBadge.textContent = direction.charAt(0).toUpperCase() + direction.slice(1);
     directionBadge.className = 'inline-block ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
-    directionBadge.classList.add(direction === 'positif' ? 'direction-positif' : 'direction-negatif');
+
+    if (direction === 'positive') {
+        directionBadge.classList.add('bg-green-50', 'text-green-600', 'border', 'border-green-100');
+    } else {
+        directionBadge.classList.add('bg-red-50', 'text-red-600', 'border', 'border-red-100');
+    }
 
     // Insight text (enhanced markdown parsing with proper spacing)
     const text = data.text || 'No insight available.';
     let html = text
-        // Headers: bold text followed by colon becomes styled header
-        .replace(/\*\*(.*?):\*\*/g, '<div class="font-bold text-gray-800 dark:text-gray-200 mt-4 mb-2">$1</div>')
-        // Bold text
-        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-700 dark:text-gray-300">$1</strong>')
+        // Headers: bold text followed by newline or colon becomes styled header
+        .replace(/\*\*(.*?):\*\*/g, '<div class="font-bold text-gray-800 dark:text-gray-200 mt-5 mb-2 border-b border-gray-100 pb-1 text-xs uppercase tracking-wide">$1</div>')
+        // Bold text (Strong/Weak/etc)
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-indigo-600 dark:text-indigo-400">$1</strong>')
         // Bullets: styled list items
-        .replace(/• (.*?)(?=\n|$)/g, '<div class="flex items-start gap-2 ml-2 my-1"><span class="text-indigo-500 mt-0.5">•</span><span class="text-gray-600 dark:text-gray-400">$1</span></div>')
+        .replace(/• (.*?)(?=\n|$)/g, '<div class="flex items-start gap-2 ml-1 my-1.5"><span class="text-indigo-500 mt-0.5">•</span><span class="text-gray-600 dark:text-gray-400">$1</span></div>')
         // Double newlines: section breaks
-        .replace(/\n\n/g, '<div class="my-3"></div>')
+        .replace(/\n\n/g, '<div class="my-2"></div>')
         // Single newlines
         .replace(/\n/g, '');
+
+    // Inject into div
     insightText.innerHTML = '<div class="text-sm leading-relaxed">' + html + '</div>';
 
     // Statistics

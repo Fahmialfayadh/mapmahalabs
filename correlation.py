@@ -107,49 +107,56 @@ def generate_smart_insight(layer1_name, data1, layer2_name, data2, historical_da
             else:
                 outlier_warning = f"{len(unique_outliers)} outlier(s) detected but have minimal impact on correlation."
     
-    # --- 5. Generate Text Insight ---
+    # --- 5. Generate Text Insight (Cleaner Format) ---
     
     direction = "positive" if pearson_r > 0 else "negative"
     if "Non-linear" in relationship_type and abs_spearman > abs_pearson:
          direction = "positive" if spearman_rho > 0 else "negative"
 
-    trend_desc = "increases" if direction == "positive" else "decreases"
+    trend_desc = "increase" if direction == "positive" else "decrease"
+    sig_text = "✓ Significant" if pearson_p < 0.05 else "✗ Not Significant"
     
-    insight_text = (
-        f"**Analysis Result**: Found a **{strength} {relationship_type}** ({direction}) between {layer1_name} and {layer2_name}.\n\n"
-        f"• **Statistical Metrics**: Pearson r={pearson_r:.2f}, Spearman ρ={spearman_rho:.2f}, MI={mi_score:.2f}.\n"
-        f"• **Significance**: p-value = {pearson_p:.4f} ({'Significant' if pearson_p < 0.05 else 'Not significant'}).\n"
-        f"• **Interpretation**: Generally, as {layer1_name} increases, {layer2_name} tends to {trend_desc}.\n"
-    )
-    
-    # --- 6. Add Warnings & Advice ---
-    warnings_list = []
-    
-    # Correlation != Causation
-    warnings_list.append("⚠️ **Correlation does not imply causation.** A relationship does not prove one causes the other.")
-    
-    # Regression Validity
-    warnings_list.append("ℹ️ **Regression Line**: This is a mathematical approximation, not a literal prediction.")
-    
-    # Sample Size
-    if n < 30:
-        warnings_list.append(f"⚠️ **Small Sample Size**: n={n}. Results may be volatile. Interpret with caution.")
-    
-    # Outliers
-    if has_outliers and "Removing them changes" in outlier_warning:
-        warnings_list.append(outlier_warning)
-        
-    # Non-linear suggestion
-    if "Non-linear" in relationship_type:
-        warnings_list.append("💡 **Model Suggestion**: Consider using Logarithmic or Polynomial models for better fit than a straight line.")
+    # Cleaner, more concise insight
+    insight_text = f"""### 📊 Summary
 
-    # Temporal Consistency (Placeholder)
-    if historical_data:
-        # Logic would go here to check year-over-year correlation stability
-        warnings_list.append("✅ **Temporal Consistency**: Historical data check passed (Prototype).")
-    else:
-        # warnings_list.append("ℹ️ Temporal consistency not checked (single timepoint data).")
-        pass
+Found a **{strength} {relationship_type}** ({direction}) between the two variables.
+
+---
+
+### 📈 Statistical Metrics
+
+| Metric | Value |
+|--------|-------|
+| Pearson (r) | {pearson_r:.3f} |
+| Spearman (ρ) | {spearman_rho:.3f} |
+| MI Score | {mi_score:.3f} |
+| p-value | {pearson_p:.4f} ({sig_text}) |
+| Sample (n) | {n} |
+
+---
+
+### 💡 Interpretation
+
+When **{layer1_name}** increases, **{layer2_name}** tends to **{trend_desc}**.
+
+---
+
+### ⚠️ Important Notes
+
+- Correlation ≠ Causation
+- Regression line is a mathematical approximation"""
+
+    # Add sample size warning if small
+    if n < 30:
+        insight_text += f"\n- ⚡ Small sample (n={n}), interpret with caution"
+    
+    # Add outlier warning if significant
+    if has_outliers and "Removing them changes" in outlier_warning:
+        insight_text += f"\n- {outlier_warning}"
+        
+    # Add model suggestion for non-linear
+    if "Non-linear" in relationship_type:
+        insight_text += "\n- 💡 Try Log/Polynomial model for better fit"
 
     # Confidence Score
     confidence = "High"
@@ -162,8 +169,7 @@ def generate_smart_insight(layer1_name, data1, layer2_name, data2, historical_da
     if has_outliers and "Removing them changes" in outlier_warning:
          if confidence == "High": confidence = "Medium"
         
-    insight_text += "\n**Confidence Level**: " + confidence + "\n"
-    insight_text += "\n".join(warnings_list)
+    insight_text += f"\n\n**Confidence: {confidence}**"
 
     return {
         "score": round(pearson_r, 2), # Keep for backward compatibility

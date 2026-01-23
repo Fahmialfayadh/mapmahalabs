@@ -2283,9 +2283,9 @@ function displayCorrelationResults(data) {
     directionBadge.className = 'inline-block ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
     directionBadge.classList.add(direction === 'positif' ? 'direction-positif' : 'direction-negatif');
 
-    // Insight text (parse markdown bold)
+    // Insight text (render full markdown using marked.js)
     const text = data.text || 'Tidak ada insight tersedia.';
-    insightText.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    insightText.innerHTML = marked.parse(text);
 
     // Statistics
     matchedRegions.textContent = data.matched_regions || 0;

@@ -202,9 +202,11 @@ def scatter(x, y, layer1_name, layer2_name):
     """
     Generates scatter plot data with multiple regression models.
     Returns dictionary with traces for Linear, Log, Poly, and Power.
+    Calculates R² for each to determine best model.
     """
     import numpy as np
     import pandas as pd
+    from sklearn.metrics import r2_score
     
     # Ensure numpy arrays and handle zeros/negatives for certain models
     x_arr = np.array(x, dtype=float)
@@ -216,17 +218,21 @@ def scatter(x, y, layer1_name, layer2_name):
     y_sorted = y_arr[sorted_indices]
     
     regressions = {}
+    r2_scores = {}
     
     # 1. Linear (y = mx + c)
     try:
         z = np.polyfit(x_arr, y_arr, 1)
         p = np.poly1d(z)
+        y_pred = p(x_arr)
+        r2 = r2_score(y_arr, y_pred)
         regressions['linear'] = {
             'x': x_sorted.tolist(),
             'y': p(x_sorted).tolist(),
             'equation': f"y = {z[0]:.2f}x + {z[1]:.2f}",
-            'r2': 0 # simplify for now
+            'r2': round(r2, 4)
         }
+        r2_scores['linear'] = r2
     except:
         regressions['linear'] = None
 
@@ -234,11 +240,15 @@ def scatter(x, y, layer1_name, layer2_name):
     try:
         z_poly = np.polyfit(x_arr, y_arr, 2)
         p_poly = np.poly1d(z_poly)
+        y_pred = p_poly(x_arr)
+        r2 = r2_score(y_arr, y_pred)
         regressions['poly'] = {
             'x': x_sorted.tolist(),
             'y': p_poly(x_sorted).tolist(),
-            'equation': f"y = {z_poly[0]:.2e}x² + {z_poly[1]:.2f}x + {z_poly[2]:.2f}"
+            'equation': f"y = {z_poly[0]:.2e}x² + {z_poly[1]:.2f}x + {z_poly[2]:.2f}",
+            'r2': round(r2, 4)
         }
+        r2_scores['poly'] = r2
     except:
         regressions['poly'] = None
         
@@ -247,13 +257,15 @@ def scatter(x, y, layer1_name, layer2_name):
     if np.all(x_arr > 0):
         try:
             z_log = np.polyfit(np.log(x_arr), y_arr, 1)
-            # y = z[0]*ln(x) + z[1]
-            y_log_pred = z_log[0] * np.log(x_sorted) + z_log[1]
+            y_log_pred = z_log[0] * np.log(x_arr) + z_log[1]
+            r2 = r2_score(y_arr, y_log_pred)
             regressions['log'] = {
                 'x': x_sorted.tolist(),
-                'y': y_log_pred.tolist(),
-                'equation': f"y = {z_log[0]:.2f}ln(x) + {z_log[1]:.2f}"
+                'y': (z_log[0] * np.log(x_sorted) + z_log[1]).tolist(),
+                'equation': f"y = {z_log[0]:.2f}ln(x) + {z_log[1]:.2f}",
+                'r2': round(r2, 4)
             }
+            r2_scores['log'] = r2
         except:
             regressions['log'] = None
     else:
@@ -266,19 +278,32 @@ def scatter(x, y, layer1_name, layer2_name):
             z_pow = np.polyfit(np.log(x_arr), np.log(y_arr), 1)
             b = z_pow[0]
             a = np.exp(z_pow[1])
-            y_pow_pred = a * (x_sorted ** b)
+            y_pow_pred = a * (x_arr ** b)
+            r2 = r2_score(y_arr, y_pow_pred)
             regressions['power'] = {
                 'x': x_sorted.tolist(),
-                'y': y_pow_pred.tolist(),
-                'equation': f"y = {a:.2f}x^{{{b:.2f}}}"
+                'y': (a * (x_sorted ** b)).tolist(),
+                'equation': f"y = {a:.2f}x^{{{b:.2f}}}",
+                'r2': round(r2, 4)
             }
+            r2_scores['power'] = r2
         except:
             regressions['power'] = None
     else:
         regressions['power'] = None
 
+    # Determine best model
+    best_model = None
+    best_r2 = -1
+    for model, score in r2_scores.items():
+        if score > best_r2:
+            best_r2 = score
+            best_model = model
+
     return {
         "regressions": regressions,
+        "best_model": best_model,
+        "best_r2": round(best_r2, 4) if best_r2 > 0 else None,
         "chart_data": {
             "x": x_arr.tolist(),
             "y": y_arr.tolist(),

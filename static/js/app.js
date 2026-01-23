@@ -2284,8 +2284,21 @@ function displayCorrelationResults(data) {
     directionBadge.classList.add(direction === 'positif' ? 'direction-positif' : 'direction-negatif');
 
     // Insight text (render full markdown using marked.js)
-    const text = data.text || 'Tidak ada insight tersedia.';
-    insightText.innerHTML = marked.parse(text);
+    const text = data.text || 'No insight available.';
+    if (typeof marked !== 'undefined' && marked.parse) {
+        insightText.innerHTML = marked.parse(text);
+    } else {
+        // Fallback: basic markdown parsing
+        let html = text
+            .replace(/### (.*)/g, '<h3 class="font-bold text-sm mt-3 mb-1">$1</h3>')
+            .replace(/---/g, '<hr class="my-2 border-gray-200">')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\| (.*?) \| (.*?) \|/g, '<div class="flex justify-between text-xs"><span>$1</span><span>$2</span></div>')
+            .replace(/\|[-\|]+\|/g, '')
+            .replace(/- (.*)/g, '<li class="text-xs">$1</li>')
+            .replace(/\n/g, '<br>');
+        insightText.innerHTML = html;
+    }
 
     // Statistics
     matchedRegions.textContent = data.matched_regions || 0;

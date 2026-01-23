@@ -2283,14 +2283,20 @@ function displayCorrelationResults(data) {
     directionBadge.className = 'inline-block ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
     directionBadge.classList.add(direction === 'positif' ? 'direction-positif' : 'direction-negatif');
 
-    // Insight text (simple markdown parsing)
+    // Insight text (enhanced markdown parsing with proper spacing)
     const text = data.text || 'No insight available.';
     let html = text
-        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-        .replace(/• /g, '<span class="text-indigo-500 mr-1">•</span>')
-        .replace(/\n\n/g, '</p><p class="mt-3">')
-        .replace(/\n/g, '<br>');
-    insightText.innerHTML = '<p>' + html + '</p>';
+        // Headers: bold text followed by colon becomes styled header
+        .replace(/\*\*(.*?):\*\*/g, '<div class="font-bold text-gray-800 dark:text-gray-200 mt-4 mb-2">$1</div>')
+        // Bold text
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-700 dark:text-gray-300">$1</strong>')
+        // Bullets: styled list items
+        .replace(/• (.*?)(?=\n|$)/g, '<div class="flex items-start gap-2 ml-2 my-1"><span class="text-indigo-500 mt-0.5">•</span><span class="text-gray-600 dark:text-gray-400">$1</span></div>')
+        // Double newlines: section breaks
+        .replace(/\n\n/g, '<div class="my-3"></div>')
+        // Single newlines
+        .replace(/\n/g, '');
+    insightText.innerHTML = '<div class="text-sm leading-relaxed">' + html + '</div>';
 
     // Statistics
     matchedRegions.textContent = data.matched_regions || 0;

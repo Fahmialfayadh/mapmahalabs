@@ -179,7 +179,7 @@ def generate_smart_insight(layer1_name, data1, layer2_name, data2, historical_da
             "type": relationship_type,
             "strength": strength,
             "direction": direction,
-            "significance": pearson_p < 0.05,
+            "significance": bool(pearson_p < 0.05),  # Convert numpy bool to Python bool
             "confidence": confidence
         },
         "text": insight_text,

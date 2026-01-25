@@ -278,37 +278,37 @@ function getColor(d, maxVal, scheme = "ylorrd") {
         return ratio > 0.857
             ? colors[6]
             : ratio > 0.714
-              ? colors[5]
-              : ratio > 0.571
-                ? colors[4]
-                : ratio > 0.428
-                  ? colors[3]
-                  : ratio > 0.285
-                    ? colors[2]
-                    : ratio > 0.142
-                      ? colors[1]
-                      : colors[0];
+                ? colors[5]
+                : ratio > 0.571
+                    ? colors[4]
+                    : ratio > 0.428
+                        ? colors[3]
+                        : ratio > 0.285
+                            ? colors[2]
+                            : ratio > 0.142
+                                ? colors[1]
+                                : colors[0];
     } else {
         // 10-color schemes (viridis, plasma)
         return ratio > 0.9
             ? colors[9]
             : ratio > 0.8
-              ? colors[8]
-              : ratio > 0.7
-                ? colors[7]
-                : ratio > 0.6
-                  ? colors[6]
-                  : ratio > 0.5
-                    ? colors[5]
-                    : ratio > 0.4
-                      ? colors[4]
-                      : ratio > 0.3
-                        ? colors[3]
-                        : ratio > 0.2
-                          ? colors[2]
-                          : ratio > 0.1
-                            ? colors[1]
-                            : colors[0];
+                ? colors[8]
+                : ratio > 0.7
+                    ? colors[7]
+                    : ratio > 0.6
+                        ? colors[6]
+                        : ratio > 0.5
+                            ? colors[5]
+                            : ratio > 0.4
+                                ? colors[4]
+                                : ratio > 0.3
+                                    ? colors[3]
+                                    : ratio > 0.2
+                                        ? colors[2]
+                                        : ratio > 0.1
+                                            ? colors[1]
+                                            : colors[0];
     }
 }
 
@@ -694,11 +694,11 @@ document
                             const radius =
                                 value !== null
                                     ? Math.max(
-                                          5,
-                                          (Math.sqrt(value) /
-                                              Math.sqrt(maxVal)) *
-                                              25,
-                                      )
+                                        5,
+                                        (Math.sqrt(value) /
+                                            Math.sqrt(maxVal)) *
+                                        25,
+                                    )
                                     : 5;
 
                             return L.circleMarker(latlng, {
@@ -706,11 +706,11 @@ document
                                 fillColor:
                                     value !== null
                                         ? getColor(
-                                              value,
-                                              choroplethData.max_value,
-                                              layerColorSchemes[folder] ||
-                                                  "ylorrd",
-                                          )
+                                            value,
+                                            choroplethData.max_value,
+                                            layerColorSchemes[folder] ||
+                                            "ylorrd",
+                                        )
                                         : "#ccc",
                                 color: "#fff",
                                 weight: 1,
@@ -736,11 +736,11 @@ document
                                 fillColor:
                                     value !== null
                                         ? getColor(
-                                              value,
-                                              choroplethData.max_value,
-                                              layerColorSchemes[folder] ||
-                                                  "ylorrd",
-                                          )
+                                            value,
+                                            choroplethData.max_value,
+                                            layerColorSchemes[folder] ||
+                                            "ylorrd",
+                                        )
                                         : "#ccc",
                                 weight: 0.5,
                                 opacity: 1,
@@ -806,7 +806,7 @@ document
                                 const countryData =
                                     choroplethData.data[countryCode] ||
                                     choroplethData.data[
-                                        countryCode?.toUpperCase()
+                                    countryCode?.toUpperCase()
                                     ];
                                 const value = countryData
                                     ? countryData[selectedYear] || 0
@@ -819,11 +819,11 @@ document
                                 const color =
                                     value !== null
                                         ? getColor(
-                                              value,
-                                              choroplethData.max_value,
-                                              layerColorSchemes[folder] ||
-                                                  "ylorrd",
-                                          )
+                                            value,
+                                            choroplethData.max_value,
+                                            layerColorSchemes[folder] ||
+                                            "ylorrd",
+                                        )
                                         : "#ccc";
 
                                 // Handle Point Layers (CircleMarker)
@@ -833,11 +833,11 @@ document
                                     const radius =
                                         value !== null
                                             ? Math.max(
-                                                  5,
-                                                  (Math.sqrt(value) /
-                                                      Math.sqrt(maxVal)) *
-                                                      25,
-                                              )
+                                                5,
+                                                (Math.sqrt(value) /
+                                                    Math.sqrt(maxVal)) *
+                                                25,
+                                            )
                                             : 5;
 
                                     layer.setStyle({
@@ -953,12 +953,12 @@ document
                         if (p.GDP) val = parseFloat(p.GDP);
                         else if (
                             p[
-                                "GDP per capita, PPP (constant 2021 international $)"
+                            "GDP per capita, PPP (constant 2021 international $)"
                             ]
                         )
                             val = parseFloat(
                                 p[
-                                    "GDP per capita, PPP (constant 2021 international $)"
+                                "GDP per capita, PPP (constant 2021 international $)"
                                 ],
                             );
                         else if (p.Value) val = parseFloat(p.Value);
@@ -981,12 +981,12 @@ document
                             if (p.GDP) val = parseFloat(p.GDP);
                             else if (
                                 p[
-                                    "GDP per capita, PPP (constant 2021 international $)"
+                                "GDP per capita, PPP (constant 2021 international $)"
                                 ]
                             )
                                 val = parseFloat(
                                     p[
-                                        "GDP per capita, PPP (constant 2021 international $)"
+                                    "GDP per capita, PPP (constant 2021 international $)"
                                     ],
                                 );
                             else if (p.Value) val = parseFloat(p.Value);
@@ -998,16 +998,16 @@ document
                                 radius:
                                     calculatedMax > 0
                                         ? Math.min(
-                                              Math.max(
-                                                  (Math.sqrt(val) /
-                                                      Math.sqrt(
-                                                          calculatedMax,
-                                                      )) *
-                                                      20,
-                                                  4,
-                                              ),
-                                              30,
-                                          )
+                                            Math.max(
+                                                (Math.sqrt(val) /
+                                                    Math.sqrt(
+                                                        calculatedMax,
+                                                    )) *
+                                                20,
+                                                4,
+                                            ),
+                                            30,
+                                        )
                                         : 5,
                                 // Warna pakai calculatedMax dan color scheme
                                 fillColor: getColor(
@@ -1500,10 +1500,10 @@ document.querySelectorAll(".color-scheme-picker").forEach((picker) => {
                     const color =
                         value !== null
                             ? getColor(
-                                  value,
-                                  choroplethData.max_value,
-                                  newScheme,
-                              )
+                                value,
+                                choroplethData.max_value,
+                                newScheme,
+                            )
                             : "#ccc";
 
                     if (layer instanceof L.CircleMarker) {
@@ -1523,12 +1523,12 @@ document.querySelectorAll(".color-scheme-picker").forEach((picker) => {
                         if (p.GDP) val = parseFloat(p.GDP);
                         else if (
                             p[
-                                "GDP per capita, PPP (constant 2021 international $)"
+                            "GDP per capita, PPP (constant 2021 international $)"
                             ]
                         )
                             val = parseFloat(
                                 p[
-                                    "GDP per capita, PPP (constant 2021 international $)"
+                                "GDP per capita, PPP (constant 2021 international $)"
                                 ],
                             );
                         else if (p.Value) val = parseFloat(p.Value);
@@ -1666,7 +1666,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 cachedData.forEach((point) => {
                     const dist = Math.sqrt(
                         Math.pow(clickLat - point.lat, 2) +
-                            Math.pow(clickLng - point.lon, 2),
+                        Math.pow(clickLng - point.lon, 2),
                     );
                     if (dist < closestDist) {
                         closestDist = dist;
@@ -1900,6 +1900,71 @@ function attachLayerToggleListeners() {
                         console.error("Error loading GeoJSON:", err);
                         this.checked = false;
                     }
+                } else if (layerType === "csv") {
+                    // --- LOGIKA CSV HEATMAP (WORKER) ---
+                    console.log(`Loading CSV layer via Worker: ${folder}`);
+
+                    // Initialize empty heatmap layer
+                    // Note: We use L.heatLayer from leaflet.heat plugin
+                    // Initial with empty array, options can be tuned
+                    const heatLayer = L.heatLayer([], {
+                        radius: 25,
+                        blur: 15,
+                        maxZoom: 14,
+                        max: 1.0,
+                        gradient: {
+                            0.2: 'blue',
+                            0.4: 'cyan',
+                            0.6: 'lime',
+                            0.8: 'yellow',
+                            1.0: 'red'
+                        }
+                    }).addTo(map);
+
+                    activeLayers[folder] = heatLayer;
+
+                    try {
+                        // Construct URL (assuming direct file access or API endpoint)
+                        // If folder is a full URL, use it. Otherwise assume relative.
+                        const csvUrl = folder.startsWith('http')
+                            ? folder
+                            : `/api/csv-data/${folder}`; // Adjust API endpoint as needed
+
+                        // Spawn Worker
+                        const worker = new Worker('/static/js/csv-worker.js');
+
+                        // Store worker reference to terminate later if needed
+                        heatLayer._csvWorker = worker;
+
+                        worker.onmessage = function (e) {
+                            const { type, points, error } = e.data;
+
+                            if (type === 'chunk') {
+                                // Append points to the heatmap
+                                // Access internal _latlngs array for performance 
+                                // (avoiding setLatLngs which re-processes everything)
+                                if (heatLayer._latlngs) {
+                                    heatLayer._latlngs.push(...points);
+                                    heatLayer.redraw(); // Trigger Canvas redraw (fast)
+                                }
+                            } else if (type === 'complete') {
+                                console.log(`CSV Load Complete via Worker`);
+                                worker.terminate();
+                            } else if (type === 'error') {
+                                console.error("CSV Worker Error:", error);
+                                worker.terminate();
+                                alert("Gagal memproses CSV");
+                            }
+                        };
+
+                        // Start processing
+                        worker.postMessage({ url: csvUrl });
+
+                    } catch (err) {
+                        console.error("Error initiating CSV worker:", err);
+                        alert("Gagal load CSV layer");
+                        this.checked = false;
+                    }
                 } else {
                     // Tile layer from R2 Storage
                     // Upscale tiles when zooming beyond available zoom levels
@@ -1920,7 +1985,21 @@ function attachLayerToggleListeners() {
                 }
             } else {
                 if (activeLayers[folder]) {
-                    map.removeLayer(activeLayers[folder]);
+                    const layerInfo = activeLayers[folder];
+                    if (layerInfo.type === "choropleth") {
+                        map.removeLayer(layerInfo.layer);
+                        document.getElementById("yearSliderContainer").classList.remove("active");
+                        document.getElementById("legendContainer").classList.remove("active");
+                        hideRankingPanel(folder);
+                    } else {
+                        // Cleanup Worker if exists
+                        if (layerInfo._csvWorker) {
+                            console.log("Terminating CSV worker");
+                            layerInfo._csvWorker.terminate();
+                        }
+                        map.removeLayer(layerInfo.layer || layerInfo);
+                        hideRankingPanel(folder);
+                    }
                     delete activeLayers[folder];
                 }
             }
@@ -1944,7 +2023,7 @@ setInterval(async () => {
                 .getElementById("refreshLayersBtn")
                 .classList.add("text-blue-500", "animate-pulse");
         }
-    } catch (e) {}
+    } catch (e) { }
 }, 30000);
 
 // ============================
@@ -3185,13 +3264,13 @@ function initDarkMode() {
                     html.classList.remove("dark");
                     try {
                         localStorage.setItem("theme", "light");
-                    } catch (e) {}
+                    } catch (e) { }
                     console.log("Switched to light mode");
                 } else {
                     html.classList.add("dark");
                     try {
                         localStorage.setItem("theme", "dark");
-                    } catch (e) {}
+                    } catch (e) { }
                     console.log("Switched to dark mode");
                 }
             };

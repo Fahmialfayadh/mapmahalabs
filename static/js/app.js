@@ -7,6 +7,15 @@ const map = L.map("map", {
     attributionControl: true,
 }).setView([-7.3, 112.74], 11);
 
+// Hide loader when map is ready (simulated for better UX or on tile load)
+setTimeout(() => {
+    const loader = document.getElementById("globalLoader");
+    if (loader) {
+        loader.classList.add("opacity-0", "pointer-events-none");
+        setTimeout(() => loader.remove(), 500);
+    }
+}, 1000); // Give it a second to show the "loading" state properly
+
 // Move zoom control to bottom right (avoid sidebar overlap)
 L.control.zoom({ position: "bottomright" }).addTo(map);
 

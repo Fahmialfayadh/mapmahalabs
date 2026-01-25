@@ -6,16 +6,16 @@ import subprocess
 import threading
 import uuid
 import zipfile
-import pycountry
-
-from correlation import generate_smart_insight, scatter
 
 import boto3
+import pycountry
 import requests
 from botocore.config import Config
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from werkzeug.utils import secure_filename
+
+from correlation import generate_smart_insight, scatter
 
 # Load environment variables
 load_dotenv()
@@ -45,6 +45,7 @@ D1_API_TOKEN = os.getenv("D1_API_TOKEN", "").strip()
 D1_ACCOUNT_ID = os.getenv("D1_ACCOUNT_ID", "").strip()
 D1_DATABASE_ID = os.getenv("D1_DATABASE_ID", "").strip()
 
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
 # Initialize R2 client
 r2_client = None
 if R2_ACCOUNT_ID and R2_ACCESS_KEY and R2_SECRET_KEY:
@@ -72,8 +73,6 @@ for country in pycountry.countries:
     if hasattr(country, 'alpha_3'):
         COUNTRY_MAPPING[country.alpha_3] = country.name
 
-# Manually add Indonesia Provinces if needed, or handle in JS
-# For now just countries as requested
 
 
 # ============================
@@ -83,7 +82,7 @@ for country in pycountry.countries:
 # Add missing columns to D1 tables if needed.
 def migrate_d1_schema():
     print("Checking D1 schema migration...")
-    
+
     if not all([D1_API_TOKEN, D1_ACCOUNT_ID, D1_DATABASE_ID]):
         return
 
@@ -193,7 +192,7 @@ def update_layer(layer_id, name=None, description=None, source_link=None, is_ins
     # Build dynamic UPDATE query based on provided fields
     updates = []
     params = []
-    
+
     if name is not None:
         updates.append("name = ?")
         params.append(name)
@@ -209,10 +208,10 @@ def update_layer(layer_id, name=None, description=None, source_link=None, is_ins
     if article_url is not None:
         updates.append("article_url = ?")
         params.append(article_url)
-    
+
     if not updates:
         return False
-    
+
     params.append(layer_id)
     sql = f"UPDATE map_layers SET {', '.join(updates)} WHERE id = ?"
     success = d1_query(sql, params, is_select=False)
@@ -327,37 +326,37 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
     2. Indonesian Provinces (auto-detected via 'provinsi' column) -> Uses Polygon GeoJSON
     """
     global conversion_tasks
-    
+
     try:
         conversion_tasks[task_id] = {'status': 'converting', 'progress': 10, 'detail': 'Reading CSV for choropleth...'}
-        
+
         # Read all rows first to analyze structure
         rows = []
         with open(csv_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             headers = reader.fieldnames
             rows = list(reader)
-        
+
         if not rows:
             conversion_tasks[task_id] = {'status': 'error', 'error': 'CSV kosong'}
             os.remove(csv_path)
             return
 
         # Detect columns
-        year_candidates = ['Year', 'year', 'YEAR', 'TIME_PERIOD', 'Date', 'date', 'TIME', 
+        year_candidates = ['Year', 'year', 'YEAR', 'TIME_PERIOD', 'Date', 'date', 'TIME',
                           'TIMEE', 'Timee', 'timee', 'TAHUN', 'Tahun', 'tahun']
         country_candidates = ['REF_AREA', 'Code', 'code', 'ISO2', 'ISO3', 'ISO_A2', 'ISO_A3',
                               'country_code', 'CountryCode', 'COUNTRY', 'Country', 'country',
                               'iso_code', 'ISO_CODE', 'iso2', 'iso3']
         indo_candidates = ['provinsi', 'PROVINSI', 'province', 'daerah', 'Propinsi', 'location', 'region']
-        value_candidates = ['Value', 'value', 'VALUE', 'OBS_VALUE', 'GDP', 'gdp', 
+        value_candidates = ['Value', 'value', 'VALUE', 'OBS_VALUE', 'GDP', 'gdp',
                            'GDP per capita, PPP (constant 2021 international $)',
                            'Amount', 'amount', 'Count', 'count', 'Total', 'total']
-        
+
         # Prioritize Indonesian provinces if found
         indo_col = next((h for h in headers if h in indo_candidates), None)
         country_col = next((h for h in headers if h in country_candidates), None)
-        
+
         use_indo_geojson = False
         geojson_file = None
 
@@ -374,25 +373,25 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
                      country_col = h
                      use_indo_geojson = True
                      break
-        
+
         year_col = next((h for h in headers if h in year_candidates), None)
-        
+
         # Use explicit value column if provided
         value_col = None
         if value_col_name:
             if value_col_name in headers:
                 value_col = value_col_name
-                conversion_tasks[task_id] = {'status': 'converting', 'progress': 25, 
+                conversion_tasks[task_id] = {'status': 'converting', 'progress': 25,
                                              'detail': f'Using column "{value_col}" for values'}
             else:
-                 conversion_tasks[task_id] = {'status': 'error', 
+                 conversion_tasks[task_id] = {'status': 'error',
                                               'error': f'Kolom "{value_col_name}" tidak ditemukan di CSV'}
                  os.remove(csv_path)
                  return
         else:
             # Auto-detect value column
             value_col = next((h for h in headers if h in value_candidates), None)
-        
+
         # If no specific value column, try to find a numeric column
         if not value_col:
             for h in headers:
@@ -405,31 +404,31 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
                         break
                     except:
                         continue
-        
+
         if not country_col:
-            conversion_tasks[task_id] = {'status': 'error', 
+            conversion_tasks[task_id] = {'status': 'error',
                                          'error': f'Kolom negara/wilayah tidak ditemukan. Headers: {headers}'}
             os.remove(csv_path)
             return
-        
+
         if not value_col:
-            conversion_tasks[task_id] = {'status': 'error', 
+            conversion_tasks[task_id] = {'status': 'error',
                                          'error': f'Kolom nilai tidak ditemukan. Headers: {headers}'}
             os.remove(csv_path)
             return
-        
-        conversion_tasks[task_id] = {'status': 'converting', 'progress': 30, 
+
+        conversion_tasks[task_id] = {'status': 'converting', 'progress': 30,
                                      'detail': f'Parsing: {country_col}, {year_col or "no year"}, {value_col}'}
-        
+
         # Build data structure
         data = {}
         years_set = set()
         min_value = float('inf')
         max_value = float('-inf')
-        
+
         for row in rows:
             region = str(row.get(country_col, '')).strip().upper()
-            
+
             # Normalization for Indonesia Provinces if needed (basic)
             if use_indo_geojson:
                 region = region.replace('PROVINSI', '').strip()
@@ -439,7 +438,7 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
 
             if not region:
                 continue
-                
+
             # Get year (default to 'all' if no year column)
             if year_col:
                 year_raw = str(row.get(year_col, '')).strip()
@@ -450,33 +449,33 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
                     year = year_raw
             else:
                 year = 'all'
-            
+
             # Get value
             try:
                 val_raw = str(row.get(value_col, '')).replace(',', '').strip()
                 value = float(val_raw) if val_raw else 0
             except:
                 continue
-            
+
             # Store data
             if region not in data:
                 data[region] = {}
             data[region][year] = value
             years_set.add(year)
-            
+
             if value < min_value:
                 min_value = value
             if value > max_value:
                 max_value = value
-        
+
         if not data:
             conversion_tasks[task_id] = {'status': 'error', 'error': 'Tidak ada data valid'}
             os.remove(csv_path)
             return
-        
+
         # Sort years
         years = sorted(list(years_set), key=lambda x: int(x) if x.isdigit() else 0)
-        
+
         geo_upload_msg = ""
         # IF INDONESIA: Upload the static GeoJSON to R2 for this layer
         if use_indo_geojson:
@@ -494,9 +493,9 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
             else:
                 print(f"Warning: {static_geo_path} not found. Layer might not render correctly.")
 
-        conversion_tasks[task_id] = {'status': 'converting', 'progress': 60, 
+        conversion_tasks[task_id] = {'status': 'converting', 'progress': 60,
                                      'detail': f'{len(data)} regions, {len(years)} years'}
-        
+
         # Create choropleth data structure
         choropleth_data = {
             'type': 'choropleth',
@@ -508,12 +507,12 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
             'max_value': max_value if max_value != float('-inf') else 100,
             'geojson_file': geojson_filename if use_indo_geojson else None
         }
-        
+
         # Save and upload to R2
         json_path = f"temp_tiles/{layer_name}_choropleth.json"
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(choropleth_data, f)
-        
+
         if r2_client:
             try:
                 remote_path = f"{layer_name}/choropleth.json"
@@ -523,21 +522,21 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
                     ExtraArgs={'ContentType': 'application/json'}
                 )
                 print(f"✓ Choropleth upload successful: {remote_path}")
-                
+
                 conversion_tasks[task_id] = {'status': 'converting', 'progress': 90, 'detail': 'Saving metadata...'}
-                
+
                 # Use 'choropleth' as layer_type
-                layer_id = insert_layer(layer_name, layer_name, 
-                                       description or f"Heatmap ({len(data)} regions, {len(years)} periods)", 
+                layer_id = insert_layer(layer_name, layer_name,
+                                       description or f"Heatmap ({len(data)} regions, {len(years)} periods)",
                                        source_link=source_link,
                                        layer_type='choropleth',
                                        is_insight=is_insight,
                                        article_url=article_url)
-                
+
                 if layer_id:
                     conversion_tasks[task_id] = {
-                        'status': 'done', 
-                        'progress': 100, 
+                        'status': 'done',
+                        'progress': 100,
                         'message': f'Layer "{layer_name}" berhasil! ({len(data)} wilayah)'
                     }
                 else:
@@ -547,12 +546,12 @@ def process_csv_choropleth(task_id, csv_path, layer_name, description, value_col
                 conversion_tasks[task_id] = {'status': 'error', 'error': f'Upload error: {str(e)}'}
         else:
             conversion_tasks[task_id] = {'status': 'error', 'error': 'R2 tidak terhubung'}
-        
+
         # Cleanup
         if os.path.exists(json_path):
             os.remove(json_path)
         os.remove(csv_path)
-        
+
     except Exception as e:
         print(f"Choropleth processing error: {str(e)}")
         conversion_tasks[task_id] = {'status': 'error', 'error': str(e)}
@@ -768,7 +767,7 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
                 country_candidates = ['REF_AREA', 'REF_AREA_ISO2', 'REF_AREA_ISO3', 'ISO2', 'ISO3',
                                      'country_code', 'CountryCode', 'COUNTRY', 'Country', 'country',
                                      'iso_code', 'ISO_CODE', 'iso2', 'iso3', 'code','Code']
-                
+
                 # Look for Indonesian Province columns
                 indo_candidates = ['provinsi', 'PROVINSI', 'province', 'Province', 'daerah', 'DAERAH', 'wilayah', 'WILAYAH']
 
@@ -804,7 +803,7 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
                         raw_val = str(row.get(country_col, '')).strip().upper()
                         # Cleanup common prefixes
                         clean_val = raw_val.replace('PROVINSI', '').strip()
-                        
+
                         if clean_val in INDONESIA_PROVINCES:
                             lat, lon = INDONESIA_PROVINCES[clean_val]
                         # Try exact match with original just in case
@@ -888,14 +887,14 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
                 # GeoJSON generation complete, now upload to R2
                 # (For CSV geojson we just save the GeoJSON file, but for map we usually want tiles or just direct GeoJSON)
                 # Here we will upload the geojson file to R2 so frontend can fetch it.
-                
+
                 # ... existing R2 upload logic ...
-                # Assuming R2 upload is handled via api_layer_data fetch from D1/R2? 
+                # Assuming R2 upload is handled via api_layer_data fetch from D1/R2?
                 # Actually below logic uploads to R2.
-                
+
                 geojson_filename = "data.geojson"
                 remote_path = f"{layer_name}/{geojson_filename}"
-                
+
                 if r2_client:
                     r2_client.put_object(
                          Bucket=R2_BUCKET,
@@ -903,7 +902,7 @@ def process_csv(task_id, csv_path, layer_name, description, lat_col, lon_col, po
                          Body=json.dumps(geojson).encode('utf-8'),
                          ContentType='application/json'
                     )
-                
+
                 # Insert into D1
                 layer_id = insert_layer(layer_name, layer_name, description or f"CSV layer ({row_count} points)", source_link=source_link, layer_type='geojson', is_insight=is_insight, article_url=article_url)
 
@@ -1017,9 +1016,9 @@ def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom
         }
 
         result = subprocess.run([
-            "gdal2tiles.py", 
-            f"--zoom={zoom_min}-{zoom_max}", 
-            "--xyz", 
+            "gdal2tiles.py",
+            f"--zoom={zoom_min}-{zoom_max}",
+            "--xyz",
             "--processes=4",
             "--resampling=average",
             vrt_path, output_dir
@@ -1091,12 +1090,35 @@ def process_geotiff(task_id, input_path, layer_name, description, zoom_min, zoom
 def index():
     layers = get_layers()
     return render_template('index.html', layers=layers, storage_url=R2_PUBLIC_URL, country_mapping=COUNTRY_MAPPING)
-    
-    
+
+
+# admin login
+from flask import Flask, redirect, session
+
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+@app.route("/admin/login")
+def admin_login_page():
+    return render_template("admin-login.html")
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        if request.form["password"] == ADMIN_PASSWORD:
+            session["admin"] = True
+            return redirect("/admin")
+
+        return redirect("/admin/login")
+
+    return render_template("admin-login.html")
 
 
 @app.route('/admin')
 def admin():
+    if not session.get("admin"):
+        return redirect("/admin/login")
+
     layers = get_layers()
     return render_template('admin.html',
                          layers=layers,
@@ -1176,15 +1198,15 @@ def admin_update(layer_id):
         data = request.get_json()
         if not data:
             return jsonify({'success': False, 'error': 'No data provided'}), 400
-        
+
         name = data.get('name')
         description = data.get('description')
         source_link = data.get('source_link')
         is_insight = data.get('is_insight')
         article_url = data.get('article_url')
-        
+
         success = update_layer(layer_id, name=name, description=description, source_link=source_link, is_insight=is_insight, article_url=article_url)
-        
+
         if success:
             return jsonify({'success': True, 'message': 'Layer berhasil diupdate'})
         else:
@@ -1228,14 +1250,14 @@ def api_choropleth_data(folder):
             error_msg = "R2_PUBLIC_URL not configured. Please set environment variable."
             print(f"ERROR: {error_msg}")
             return jsonify({'error': error_msg}), 500
-        
+
         # Build URL and fetch from R2
         url = f"{R2_PUBLIC_URL}/{folder}/choropleth.json"
         print(f"Fetching choropleth from: {url}")
-        
+
         response = requests.get(url, timeout=30)
         print(f"Response status: {response.status_code}")
-        
+
         if response.status_code == 200:
             return jsonify(response.json())
         elif response.status_code == 404:
@@ -1246,9 +1268,9 @@ def api_choropleth_data(folder):
             error_msg = f'Failed to fetch: HTTP {response.status_code}'
             print(f"ERROR: {error_msg}")
             return jsonify({'error': error_msg}), response.status_code
-            
+
     except requests.exceptions.Timeout:
-        error_msg = f'Timeout connecting to R2 storage. Check network connectivity.'
+        error_msg = 'Timeout connecting to R2 storage. Check network connectivity.'
         print(f"ERROR: {error_msg}")
         return jsonify({'error': error_msg}), 504
     except requests.exceptions.ConnectionError as e:
@@ -1271,14 +1293,14 @@ def api_layer_geometry(folder, filename):
             error_msg = "R2_PUBLIC_URL not configured. Please set environment variable."
             print(f"ERROR: {error_msg}")
             return jsonify({'error': error_msg}), 500
-        
+
         # Build URL and fetch from R2
         url = f"{R2_PUBLIC_URL}/{folder}/{filename}"
         print(f"Fetching geometry from: {url}")
-        
+
         response = requests.get(url, timeout=30)
         print(f"Response status: {response.status_code}")
-        
+
         if response.status_code == 200:
             return jsonify(response.json())
         elif response.status_code == 404:
@@ -1289,9 +1311,9 @@ def api_layer_geometry(folder, filename):
             error_msg = f'Failed to fetch: HTTP {response.status_code}'
             print(f"ERROR: {error_msg}")
             return jsonify({'error': error_msg}), response.status_code
-            
+
     except requests.exceptions.Timeout:
-        error_msg = f'Timeout connecting to R2 storage'
+        error_msg = 'Timeout connecting to R2 storage'
         print(f"ERROR: {error_msg}")
         return jsonify({'error': error_msg}), 504
     except requests.exceptions.ConnectionError as e:
@@ -1347,10 +1369,10 @@ WEATHER_VARIABLES = {
 
 def generate_global_grid(resolution=10.0):
     """Generate grid points covering the world.
-    
+
     Args:
         resolution: Grid spacing in degrees (default 10.0)
-    
+
     Returns:
         List of (lat, lon) tuples
     """
@@ -1362,14 +1384,14 @@ def generate_global_grid(resolution=10.0):
             points.append((round(lat, 1), round(lon, 1)))
             lon += resolution
         lat += resolution
-    
+
     return points
 
 
 @app.route('/api/weather-data')
 def api_weather_data():
     """Fetch weather data from Open-Meteo for global grid.
-    
+
     Query Parameters:
         variable: Weather variable (default: temperature_2m)
         hour: Hour index for hourly forecast (default: 0 = current hour)
@@ -1377,36 +1399,36 @@ def api_weather_data():
         resolution: Grid resolution in degrees (default: 15)
     """
     import time as time_module
-    
+
     variable = request.args.get('variable', 'temperature_2m')
     hour_index = int(request.args.get('hour', 0))
     day_index = request.args.get('day', None)
     resolution = float(request.args.get('resolution', 15))
-    
+
     # Validate variable
     if variable not in WEATHER_VARIABLES:
         return jsonify({'error': f'Invalid variable: {variable}'}), 400
-    
+
     # Generate grid points
     points = generate_global_grid(resolution)
     print(f"Generated {len(points)} grid points at resolution {resolution}°")
-    
+
     # Check cache
     is_daily = day_index is not None
     cache_key = f"weather_{variable}_{resolution}_{is_daily}"
     if cache_key in weather_cache:
         cached_time, cached_data = weather_cache[cache_key]
         if time_module.time() - cached_time < WEATHER_CACHE_DURATION:
-            print(f"Using cached weather data")
+            print("Using cached weather data")
             # Return cached data with the right time slice
             return process_cached_weather(cached_data, variable, hour_index if not is_daily else int(day_index), is_daily)
-    
+
     # Build API request - Open-Meteo supports comma-separated lat/lon for multiple points
     latitudes = ','.join(str(p[0]) for p in points)
     longitudes = ','.join(str(p[1]) for p in points)
-    
+
     url = "https://api.open-meteo.com/v1/forecast"
-    
+
     # Determine if using hourly or daily
     if is_daily:
         # Map hourly variables to daily equivalents
@@ -1417,7 +1439,7 @@ def api_weather_data():
             daily_var = 'wind_speed_10m_max'
         elif variable == 'relative_humidity_2m':
             daily_var = 'relative_humidity_2m_mean'
-            
+
         params = {
             'latitude': latitudes,
             'longitude': longitudes,
@@ -1433,23 +1455,23 @@ def api_weather_data():
             'timezone': 'auto',
             'forecast_days': 3
         }
-    
+
     try:
         print(f"Fetching weather from Open-Meteo for {len(points)} points...")
         response = requests.get(url, params=params, timeout=120)
-        
+
         if response.status_code != 200:
             print(f"Open-Meteo error: {response.status_code} - {response.text[:200]}")
             return jsonify({'error': f'Open-Meteo API error: {response.status_code}'}), 500
-        
+
         raw_data = response.json()
-        
+
         # Cache the raw response
         weather_cache[cache_key] = (time_module.time(), raw_data)
-        print(f"✓ Weather data fetched and cached")
-        
+        print("✓ Weather data fetched and cached")
+
         return process_cached_weather(raw_data, variable, hour_index if not is_daily else int(day_index), is_daily)
-        
+
     except Exception as e:
         print(f"Weather fetch error: {e}")
         return jsonify({'error': str(e)}), 500
@@ -1459,7 +1481,7 @@ def process_cached_weather(raw_data, variable, time_index, is_daily=False):
     """Process cached weather data and extract the relevant time slice."""
     heatmap_data = []
     times = []
-    
+
     # Debug: Print raw data structure
     if isinstance(raw_data, list):
         print(f"DEBUG: Raw data is list with {len(raw_data)} items")
@@ -1475,13 +1497,13 @@ def process_cached_weather(raw_data, variable, time_index, is_daily=False):
                     print(f"DEBUG: Variable '{variable}' NOT found in hourly!")
     else:
         print(f"DEBUG: Raw data is single object, keys: {list(raw_data.keys())}")
-    
+
     # Open-Meteo returns an array when multiple locations are requested
     if isinstance(raw_data, list):
         for loc in raw_data:
             lat = loc.get('latitude')
             lon = loc.get('longitude')
-            
+
             if is_daily:
                 daily = loc.get('daily', {})
                 # Try different daily variable names
@@ -1493,7 +1515,7 @@ def process_cached_weather(raw_data, variable, time_index, is_daily=False):
                 values = hourly.get(variable, [])
                 if not times and 'time' in hourly:
                     times = hourly['time']
-            
+
             if values and time_index < len(values) and values[time_index] is not None:
                 heatmap_data.append({
                     'lat': lat,
@@ -1504,7 +1526,7 @@ def process_cached_weather(raw_data, variable, time_index, is_daily=False):
         # Single location response
         lat = raw_data.get('latitude')
         lon = raw_data.get('longitude')
-        
+
         if is_daily:
             daily = raw_data.get('daily', {})
             values = daily.get(f'{variable}_mean') or daily.get(f'{variable}_max') or daily.get(variable, [])
@@ -1513,17 +1535,17 @@ def process_cached_weather(raw_data, variable, time_index, is_daily=False):
             hourly = raw_data.get('hourly', {})
             values = hourly.get(variable, [])
             times = hourly.get('time', [])
-        
+
         if values and time_index < len(values) and values[time_index] is not None:
             heatmap_data.append({
                 'lat': lat,
                 'lon': lon,
                 'value': values[time_index]
             })
-    
+
     # Get variable metadata
     var_meta = WEATHER_VARIABLES.get(variable, {'name': variable, 'unit': '', 'min': 0, 'max': 100})
-    
+
     return jsonify({
         'success': True,
         'variable': variable,
@@ -1556,17 +1578,17 @@ def api_weather_variables():
 @app.route('/api/weather-point')
 def api_weather_point():
     """Fetch weather data for a specific point (for click popups).
-    
+
     Query Parameters:
         lat: Latitude
         lon: Longitude
     """
     lat = float(request.args.get('lat', -6.2))
     lon = float(request.args.get('lon', 106.8))
-    
+
     # Fetch all weather variables for this point
     variables = list(WEATHER_VARIABLES.keys())
-    
+
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         'latitude': lat,
@@ -1576,12 +1598,12 @@ def api_weather_point():
         'timezone': 'Asia/Jakarta',
         'forecast_days': 2
     }
-    
+
     try:
         response = requests.get(url, params=params, timeout=30)
         if response.status_code == 200:
             data = response.json()
-            
+
             # Format current weather data
             current = {}
             if 'current' in data:
@@ -1593,7 +1615,7 @@ def api_weather_point():
                             'value': data['current'][var],
                             'unit': meta['unit']
                         }
-            
+
             return jsonify({
                 'success': True,
                 'latitude': data.get('latitude'),
@@ -1619,30 +1641,30 @@ def api_correlation():
         folder1 = request.args.get('layer1')
         folder2 = request.args.get('layer2')
         year = request.args.get('year', 'all')
-        
+
         if not folder1 or not folder2:
             return jsonify({'error': 'Both layer1 and layer2 parameters are required'}), 400
-        
+
         # Fetch choropleth data for both layers from R2
         url1 = f"{R2_PUBLIC_URL}/{folder1}/choropleth.json"
         url2 = f"{R2_PUBLIC_URL}/{folder2}/choropleth.json"
-        
+
         resp1 = requests.get(url1, timeout=30)
         resp2 = requests.get(url2, timeout=30)
-        
+
         if resp1.status_code != 200:
             return jsonify({'error': f'Failed to fetch layer1 data: HTTP {resp1.status_code}'}), 400
         if resp2.status_code != 200:
             return jsonify({'error': f'Failed to fetch layer2 data: HTTP {resp2.status_code}'}), 400
-        
+
         data1 = resp1.json()
         data2 = resp2.json()
-        
+
         # Determine layer types (province vs global)
         # Province layers have geojson_file pointing to indonesia-provinces.geojson
         is_province1 = data1.get('geojson_file') == 'indonesia-provinces.geojson'
         is_province2 = data2.get('geojson_file') == 'indonesia-provinces.geojson'
-        
+
         # Validate same type
         if is_province1 != is_province2:
             return jsonify({
@@ -1651,29 +1673,29 @@ def api_correlation():
                 'layer1_type': 'province' if is_province1 else 'global',
                 'layer2_type': 'province' if is_province2 else 'global'
             }), 400
-        
+
         # Extract common regions and their values
         regions1 = data1.get('data', {})
         regions2 = data2.get('data', {})
-        
+
         # Find common regions
         common_regions = set(regions1.keys()) & set(regions2.keys())
-        
+
         if len(common_regions) < 3:
             return jsonify({
                 'error': f'Tidak cukup region yang cocok untuk analisis korelasi. Ditemukan hanya {len(common_regions)} region.',
                 'common_regions': len(common_regions)
             }), 400
-        
+
         # Extract values for the specified year
         values1 = []
         values2 = []
         region_names = []
-        
+
         for region in common_regions:
             region_data1 = regions1.get(region, {})
             region_data2 = regions2.get(region, {})
-            
+
             # Get value for the specified year or first available
             if year != 'all' and year in region_data1 and year in region_data2:
                 val1 = region_data1[year]
@@ -1682,7 +1704,7 @@ def api_correlation():
                 # Get the first available year's data
                 val1 = list(region_data1.values())[0] if region_data1 else None
                 val2 = list(region_data2.values())[0] if region_data2 else None
-            
+
             if val1 is not None and val2 is not None:
                 try:
                     values1.append(float(val1))
@@ -1690,19 +1712,19 @@ def api_correlation():
                     region_names.append(region)
                 except (ValueError, TypeError):
                     continue
-        
+
         if len(values1) < 3:
             return jsonify({
                 'error': f'Data nilai tidak cukup untuk tahun yang dipilih. Hanya {len(values1)} region memiliki data valid.',
                 'valid_regions': len(values1)
             }), 400
-        
+
         # Calculate correlation using generate_smart_insight
         layer1_name = data1.get('value_column', folder1)
         layer2_name = data2.get('value_column', folder2)
-        
+
         result = generate_smart_insight(layer1_name, values1, layer2_name, values2)
-        
+
         # Generate Plotly Scatter Chart data
         try:
             scatter_result = scatter(values1, values2, layer1_name, layer2_name)
@@ -1717,7 +1739,7 @@ def api_correlation():
             print(f"Error generating chart: {chart_err}")
             result['plotly_data'] = None
             result['regressions'] = {}
-        
+
         # Add additional metadata
         result['layer1'] = {
             'folder': folder1,
@@ -1732,12 +1754,12 @@ def api_correlation():
         result['year'] = year
         result['matched_regions'] = len(values1)
         result['region_names'] = region_names
-        
+
         return jsonify({
             'success': True,
             **result
         })
-        
+
     except Exception as e:
         print(f"API Error: {e}")
         return jsonify({'error': str(e)}), 500
@@ -1752,8 +1774,7 @@ if __name__ == '__main__':
     # Use environment variables for flexibility
     port = int(os.getenv('PORT', 5500))
     debug = os.getenv('DEBUG', 'False').lower() == 'true'
-    
+
     # Bind to 0.0.0.0 to accept connections from all network interfaces
     # This allows the server to be accessible from external hosts
     app.run(host='0.0.0.0', port=port, debug=debug)
-

@@ -17,14 +17,38 @@
             darkMode: 'class',
             theme: {
                 extend: {
+                    colors: {
+                        brand: {
+                            50: "#f5f3ff",
+                            100: "#ede9fe",
+                            200: "#ddd6fe",
+                            300: "#c4b5fd",
+                            400: "#a78bfa",
+                            500: "#8b5cf6",
+                            600: "#7c3aed", // Vibrant Purple (Primary)
+                            700: "#6d28d9",
+                            800: "#5b21b6",
+                            900: "#4c1d95",
+                        },
+                        dark: {
+                            900: "#0f172a",
+                            800: "#1e293b",
+                            700: "#334155",
+                        },
+                    },
                     fontFamily: {
-                        sans: ['Plus Jakarta Sans', 'sans-serif'],
-                    }
-                }
-            }
+                        sans: ["Inter", "sans-serif"],
+                        display: ["Outfit", "sans-serif"],
+                    },
+                    boxShadow: {
+                        glow: "0 0 50px -12px rgba(124, 58, 237, 0.25)",
+                    },
+                },
+            },
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
 
     <!-- Leaflet CSS -->
@@ -40,8 +64,8 @@
 
     <!-- Mobile Menu Button -->
     <button id="menuBtn"
-        class="fixed top-4 left-4 z-[9999] bg-white dark:bg-slate-800 p-3 rounded-xl shadow-lg md:hidden
-            hover:bg-gray-50 dark:hover:bg-slate-700 active:bg-gray-100 transition-colors flex items-center justify-center cursor-pointer"
+        class="fixed top-4 left-4 z-[9999] bg-white dark:bg-slate-800 p-3 rounded-xl shadow-lg
+            hover:bg-gray-50 dark:hover:bg-slate-700 active:bg-gray-100 transition-colors flex items-center justify-center cursor-pointer md:hidden"
         aria-label="Toggle menu">
         <svg class="w-6 h-6 text-gray-700 dark:text-gray-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -53,19 +77,34 @@
         class="sidebar-overlay fixed inset-0 bg-black/40 z-[1050] hidden md:hidden opacity-0 pointer-events-none">
     </div>
 
+
     <!-- Sidebar -->
     <aside id="sidebar"
-        class="glass-sidebar fixed top-0 left-0 z-[1100] w-96 h-screen transition-transform -translate-x-full md:translate-x-0 flex flex-col bg-white/90 dark:bg-gray-900/90 text-slate-800 dark:text-slate-100 ">
+        class="glass-sidebar fixed top-0 left-0 z-[1100] w-80 h-screen transition-transform -translate-x-full md:translate-x-0 flex flex-col bg-white/90 dark:bg-gray-900/90 text-slate-800 dark:text-slate-100 ">
 
-        <!-- Sidebar Header: Logo & Title -->
-        <div class="p-6 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-            <h1
-                class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-500 dark:from-indigo-400 dark:to-violet-400 tracking-tight flex items-center gap-3">
-                PetaSight
-            </h1>
-            <p class="text-xs text-gray-400 font-semibold uppercase tracking-widest mt-1 ml-11">Geo Visualization
-                Platform
-            </p>
+        <div class="p-6 border-b border-gray-100 dark:border-gray-800
+                     bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+
+            <div class="flex items-center gap-3">
+                <img src="{{ url_for('static', filename='assets/logo3.png') }}" alt="Logo"
+                    class="w-10 h-10 object-contain relative z-50" />
+
+                <div>
+                    <h1 class="text-2xl font-bold bg-clip-text text-transparent
+                           bg-gradient-to-r from-indigo-600 to-violet-500
+                           dark:from-indigo-400 dark:to-violet-400
+                           tracking-tight">
+                        PetaSight
+                    </h1>
+
+                    <p class="text-[10px] text-gray-400 font-semibold uppercase
+                           tracking-widest">
+                        Geo Visualization Platform
+                    </p>
+                </div>
+
+            </div>
+
         </div>
 
         <!-- Navigation Tabs -->
@@ -81,9 +120,15 @@
                 data-tab="analysis-tab">
                 Data Correlation
             </button>
-            <a href="https://mahalabs.space" target="_blank"
-                class="flex-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border-b-2 border-transparent text-center flex items-center justify-center gap-1 group">
-                Labs
+            <a href="#" onclick="
+                    event.preventDefault();
+                    closeSidebar();
+                    openLabsModal();
+
+                "
+                class="flex-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400
+                transition-colors border-b-2 border-transparent text-center flex items-center justify-center gap-1 group">
+                MahaLabs
                 <svg class="w-3 h-3 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all"
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -894,9 +939,65 @@
         </div>
 
     </aside>
+    <!--pop up modal -->
+    <div id="labsModal" class="fixed inset-0 z-[99999] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity opacity-0" id="labsBackdrop"
+            onclick="closeLabsModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all sm:w-full sm:max-w-md scale-90 opacity-0 duration-300"
+                    id="labsPanel">
+
+                    <!-- Decorative Header -->
+                    <div
+                        class="bg-gradient-to-br from-[#f5f3ff] via-white to-[#eff6ff] p-10 text-center relative overflow-hidden">
+                        <!-- Gradient Orbs -->
+                        <div
+                            class="absolute -top-10 -left-10 w-40 h-40 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse">
+                        </div>
+                        <div
+                            class="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse delay-1000">
+                        </div>
+
+                        <div class="relative z-10">
+                            <div class="mx-auto mb-6 flex justify-center">
+                                <span
+                                    class="bg-white/50 backdrop-blur-md p-4 rounded-2xl shadow-sm ring-1 ring-black/5">
+                                    <img src="{{ url_for('static', filename='assets/logo3.png') }}" alt="Logo"
+                                        class="w-12 h-12 object-contain">
+                                </span>
+                            </div>
+                            <h3 class="text-3xl font-display font-bold text-[#2e1065] mb-2 tracking-tight">MahaLabs</h3>
+                            <p class="text-[#5b21b6] font-medium text-sm">Explore experimental ideas.</p>
+                        </div>
+                    </div>
+
+                    <div class="px-8 py-8">
+                        <p class="text-slate-600 text-center mb-8 leading-relaxed">
+                            Jelajahi ekosistem aplikasi kami lainnya di MahaLabs
+                        </p>
+
+                        <div class="space-y-3">
+                            <a href="https://mahalabs.space" target="_blank"
+                                onclick="handleMahaLabsClick(event, this.href)"
+                                class="flex items-center justify-center w-full px-6 py-4 bg-gradient-to-r from-indigo-500 to-violet-600 text-white rounded-xl font-bold shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all duration-300">
+                                Lihat MahaLabs
+                            </a>
+                            <button type="button" onclick="closeLabsModal()"
+                                class="flex items-center justify-center w-full px-6 py-4 bg-slate-50 text-slate-700 rounded-xl font-medium hover:bg-slate-100 transition-all duration-300">
+                                Nanti Saja
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Map Container -->
     <div id="map"></div>
+
 
     <!-- Floating Ranking Panel (on map) -->
     <div id="rankingContainer" class="ranking-container">
@@ -933,6 +1034,7 @@
             </button>
         </div>
     </div>
+
 
     <!-- Year Slider Control (for choropleth layers) -->
     <div id="yearSliderContainer" class="year-slider-container">
@@ -997,8 +1099,65 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/config.js') }}?v=3"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
+    <!-- js popup -->
+    <script>
+        function openLabsModal() {
+            const modal = document.getElementById('labsModal');
+            const backdrop = document.getElementById('labsBackdrop');
+            const panel = document.getElementById('labsPanel');
+
+            modal.classList.remove('hidden');
+            // Animate in
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('opacity-0', 'scale-90');
+                panel.classList.add('opacity-100', 'scale-100');
+            }, 10);
+        }
+
+        function closeLabsModal() {
+            const modal = document.getElementById('labsModal');
+            const backdrop = document.getElementById('labsBackdrop');
+            const panel = document.getElementById('labsPanel');
+
+            backdrop.classList.add('opacity-0');
+            panel.classList.remove('opacity-100', 'scale-100');
+            panel.classList.add('opacity-0', 'scale-90');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    </script>
     <!-- Insight Popup Modal -->
     {% include 'popup.html' %}
+    <!-- fullscreen -->
+    <script>
+        let sidebarOpen = true;
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById("sidebar");
+            const map = document.getElementById("map");
+
+            sidebarOpen = !sidebarOpen;
+
+            if (sidebarOpen) {
+                sidebar.classList.remove("-translate-x-full");
+                map.style.left = "360px";
+            } else {
+                sidebar.classList.add("-translate-x-full");
+                map.style.left = "0";
+            }
+
+            // penting buat leaflet
+            if (window.map) {
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 320);
+            }
+        }
+    </script>
+
 </body>
 
 </html>
